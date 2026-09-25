@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useEffect } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { useAuthStore } from '../lib/store';
 import { Login } from './login';
 import { Shell } from './shell';
@@ -19,41 +19,44 @@ const AUTH_ERRORS: Record<string, string> = {
 };
 
 /**
- * Gate: captures a token (or error) handed back by the Slack OAuth redirect,
- * waits for the persisted store to hydrate, re-validates the token, then shows
- * the login screen or the app shell.
+ * Gate: renders a stable placeholder until the component has mounted on the
+ * client (persisted state is read synchronously by then), captures a token or
+ * error handed back by the Slack OAuth redirect, then shows login or the shell.
+ *
+ * We gate on a local `mounted` flag rather than a store flag so the gate can
+ * never get stuck if persist's rehydrate callback misbehaves, and so the
+ * server render (always `Loading`) matches the first client render.
  */
 export function Providers({ children }: { children: ReactNode }) {
-  const hydrated = useAuthStore((s) => s.hydrated);
+  const [mounted, setMounted] = useState(false);
   const token = useAuthStore((s) => s.token);
   const me = useAuthStore((s) => s.me);
-  const fetchMe = useAuthStore((s) => s.fetchMe);
 
-  // Capture ?token / ?auth_error from the Slack redirect, then clean the URL.
   useEffect(() => {
+    const store = useAuthStore.getState();
     const url = new URL(window.location.href);
     const redirectToken = url.searchParams.get('token');
     const authError = url.searchParams.get('auth_error');
+
     if (redirectToken) {
-      useAuthStore.getState().setSession(redirectToken);
+      store.setSession(redirectToken);
     } else if (authError) {
-      useAuthStore.getState().setAuthError(AUTH_ERRORS[authError] ?? 'Sign-in failed.');
+      store.setAuthError(AUTH_ERRORS[authError] ?? 'Sign-in failed.');
+    } else if (store.token) {
+      // A persisted token exists — re-validate it against the backend.
+      store.fetchMe();
     }
+
     if (redirectToken || authError) {
       url.searchParams.delete('token');
       url.searchParams.delete('auth_error');
       window.history.replaceState({}, '', url.pathname + url.search);
     }
+
+    setMounted(true);
   }, []);
 
-  useEffect(() => {
-    // After hydration, refresh the profile so server-side role/permission
-    // changes take effect even though `me` was restored from storage.
-    if (hydrated && token) fetchMe();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated]);
-
-  if (!hydrated) return <Loading />;
+  if (!mounted) return <Loading />;
   if (token && !me) return <Loading />; // token present, profile loading
   if (!me) return <Login />;
   return <Shell>{children}</Shell>;

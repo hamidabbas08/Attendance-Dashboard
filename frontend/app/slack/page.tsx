@@ -1,14 +1,18 @@
+'use client';
+
 import { FormEvent, useState } from 'react';
-import { api, ApiError } from '../api';
-import { useAuth } from '../auth';
-import { useFetch } from '../useFetch';
+import { api, ApiError } from '../../lib/api';
+import { useAuth } from '../../lib/auth';
+import { Guard } from '../../lib/components';
+import { P } from '../../lib/permissions';
+import { useFetch } from '../../lib/useFetch';
 
 interface Status {
   connected: boolean;
   workspace: { workspaceName: string; slackTeamId: string; connected: boolean } | null;
 }
 
-export function SlackSettings() {
+function SlackSettings() {
   const { can } = useAuth();
   const { data, reload } = useFetch<Status>('/api/slack/status');
   const [form, setForm] = useState({ slackTeamId: '', workspaceName: '', accessToken: '' });
@@ -67,5 +71,13 @@ export function SlackSettings() {
         </div>
       )}
     </>
+  );
+}
+
+export default function Page() {
+  return (
+    <Guard perm={P.SLACK_VIEW}>
+      <SlackSettings />
+    </Guard>
   );
 }

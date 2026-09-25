@@ -1,13 +1,15 @@
-import { useAuth } from '../auth';
-import { P } from '../permissions';
-import { useFetch } from '../useFetch';
+'use client';
+
+import { useAuth } from '../lib/auth';
+import { P } from '../lib/permissions';
+import { useFetch } from '../lib/useFetch';
 
 interface Report {
   total: number;
   byStatus: Record<string, number>;
 }
 
-export function Dashboard() {
+export default function DashboardPage() {
   const { me, can } = useAuth();
   const canReport = can(P.REPORTS_VIEW);
   const { data } = useFetch<Report>(canReport ? '/api/reports/attendance' : '/api/auth/me');

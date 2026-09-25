@@ -1,26 +1,27 @@
-import { StatusPill } from '../components';
-import { useFetch } from '../useFetch';
+'use client';
+
+import { StatusPill, Guard } from '../../lib/components';
+import { P } from '../../lib/permissions';
+import { useFetch } from '../../lib/useFetch';
 
 interface Record {
   id: string;
-  employeeId: string;
   date: string;
   checkIn: string | null;
   checkOut: string | null;
   status: string;
 }
 
-export function Attendance() {
-  const { data } = useFetch<Record[]>('/api/attendance');
+function MyAttendance() {
+  const { data } = useFetch<Record[]>('/api/attendance/me');
   return (
     <>
-      <h2>Company Attendance</h2>
+      <h2>My Attendance</h2>
       <div className="card">
         <table>
           <thead>
             <tr>
               <th>Date</th>
-              <th>Employee</th>
               <th>Check in</th>
               <th>Check out</th>
               <th>Status</th>
@@ -30,7 +31,6 @@ export function Attendance() {
             {(data ?? []).map((r) => (
               <tr key={r.id}>
                 <td>{r.date}</td>
-                <td className="muted">{r.employeeId.slice(0, 8)}…</td>
                 <td>{r.checkIn ?? '—'}</td>
                 <td>{r.checkOut ?? '—'}</td>
                 <td>
@@ -38,9 +38,24 @@ export function Attendance() {
                 </td>
               </tr>
             ))}
+            {data?.length === 0 && (
+              <tr>
+                <td colSpan={4} className="muted">
+                  No attendance records yet.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
     </>
+  );
+}
+
+export default function Page() {
+  return (
+    <Guard perm={P.ATTENDANCE_VIEW_OWN}>
+      <MyAttendance />
+    </Guard>
   );
 }

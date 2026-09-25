@@ -1,7 +1,9 @@
+'use client';
+
 import { useEffect, useState } from 'react';
 import { api, ApiError } from './api';
 
-export function useFetch<T>(path: string, deps: unknown[] = []): {
+export function useFetch<T>(path: string): {
   data: T | null;
   error: ApiError | null;
   loading: boolean;
@@ -22,8 +24,7 @@ export function useFetch<T>(path: string, deps: unknown[] = []): {
     return () => {
       active = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [path, nonce, ...deps]);
+  }, [path, nonce]);
 
   return { data, error, loading, reload: () => setNonce((n) => n + 1) };
 }

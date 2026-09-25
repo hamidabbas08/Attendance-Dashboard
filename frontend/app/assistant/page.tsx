@@ -1,5 +1,9 @@
+'use client';
+
 import { FormEvent, useState } from 'react';
-import { api, ApiError } from '../api';
+import { api, ApiError } from '../../lib/api';
+import { Guard } from '../../lib/components';
+import { P } from '../../lib/permissions';
 
 interface Answer {
   answer: string;
@@ -7,7 +11,7 @@ interface Answer {
   recordCount: number;
 }
 
-export function ClaudeAssistant() {
+function ClaudeAssistant() {
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [error, setError] = useState('');
@@ -66,5 +70,13 @@ export function ClaudeAssistant() {
         )}
       </div>
     </>
+  );
+}
+
+export default function Page() {
+  return (
+    <Guard perm={P.CLAUDE_QUERY_OWN}>
+      <ClaudeAssistant />
+    </Guard>
   );
 }

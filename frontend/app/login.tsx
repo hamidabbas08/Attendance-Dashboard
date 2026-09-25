@@ -1,6 +1,8 @@
+'use client';
+
 import { FormEvent, useState } from 'react';
-import { useAuth } from '../auth';
-import { ApiError } from '../api';
+import { ApiError } from '../lib/api';
+import { useAuth } from '../lib/auth';
 
 export function Login() {
   const { login } = useAuth();

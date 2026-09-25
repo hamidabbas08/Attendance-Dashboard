@@ -1,7 +1,11 @@
+'use client';
+
 import { FormEvent, useState } from 'react';
-import { api, ApiError } from '../api';
-import { useAuth } from '../auth';
-import { useFetch } from '../useFetch';
+import { api, ApiError } from '../../lib/api';
+import { useAuth } from '../../lib/auth';
+import { Guard } from '../../lib/components';
+import { P } from '../../lib/permissions';
+import { useFetch } from '../../lib/useFetch';
 
 interface Shift {
   id: string;
@@ -11,7 +15,7 @@ interface Shift {
   graceMins: number;
 }
 
-export function Shifts() {
+function Shifts() {
   const { can } = useAuth();
   const { data, reload } = useFetch<Shift[]>('/api/shifts');
   const [form, setForm] = useState({ name: '', startTime: '09:00', endTime: '18:00', graceMins: 15 });
@@ -82,5 +86,13 @@ export function Shifts() {
         </table>
       </div>
     </>
+  );
+}
+
+export default function Page() {
+  return (
+    <Guard perm={P.SHIFTS_VIEW}>
+      <Shifts />
+    </Guard>
   );
 }

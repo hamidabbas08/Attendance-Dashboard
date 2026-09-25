@@ -1,14 +1,17 @@
-import { getToken } from '../api';
-import { useAuth } from '../auth';
-import { StatusPill } from '../components';
-import { useFetch } from '../useFetch';
+'use client';
+
+import { getToken } from '../../lib/api';
+import { useAuth } from '../../lib/auth';
+import { StatusPill, Guard } from '../../lib/components';
+import { P } from '../../lib/permissions';
+import { useFetch } from '../../lib/useFetch';
 
 interface Report {
   total: number;
   byStatus: Record<string, number>;
 }
 
-export function Reports() {
+function Reports() {
   const { can } = useAuth();
   const { data } = useFetch<Report>('/api/reports/attendance');
 
@@ -47,5 +50,13 @@ export function Reports() {
         <p className="muted">Total records: {data?.total ?? 0}</p>
       </div>
     </>
+  );
+}
+
+export default function Page() {
+  return (
+    <Guard perm={P.REPORTS_VIEW}>
+      <Reports />
+    </Guard>
   );
 }

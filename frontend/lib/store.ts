@@ -18,7 +18,10 @@ interface AuthState {
   me: Me | null;
   loading: boolean; // true while /auth/me is in flight
   hydrated: boolean; // true once persisted state has been read from storage
+  authError: string | null; // last login error (e.g. from a Slack redirect)
   login: (email: string, password: string) => Promise<void>;
+  setSession: (token: string) => Promise<void>;
+  setAuthError: (message: string | null) => void;
   logout: () => void;
   fetchMe: () => Promise<void>;
   can: (permission: string) => boolean;
@@ -43,14 +46,25 @@ export const useAuthStore = create<AuthState>()(
       me: null,
       loading: false,
       hydrated: false,
+      authError: null,
 
       async login(email, password) {
         const res = await api<{ token: string }>('/api/auth/login', {
           method: 'POST',
           body: JSON.stringify({ email, password }),
         });
-        set({ token: res.token });
+        set({ token: res.token, authError: null });
         await get().fetchMe();
+      },
+
+      // Adopt a token issued elsewhere (e.g. the Slack OAuth redirect).
+      async setSession(token) {
+        set({ token, authError: null });
+        await get().fetchMe();
+      },
+
+      setAuthError(message) {
+        set({ authError: message });
       },
 
       logout() {

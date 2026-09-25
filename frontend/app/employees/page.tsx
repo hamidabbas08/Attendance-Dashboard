@@ -1,7 +1,11 @@
+'use client';
+
 import { FormEvent, useState } from 'react';
-import { api, ApiError } from '../api';
-import { useAuth } from '../auth';
-import { useFetch } from '../useFetch';
+import { api, ApiError } from '../../lib/api';
+import { useAuth } from '../../lib/auth';
+import { Guard } from '../../lib/components';
+import { P } from '../../lib/permissions';
+import { useFetch } from '../../lib/useFetch';
 
 interface Employee {
   id: string;
@@ -11,7 +15,7 @@ interface Employee {
   shiftId: string | null;
 }
 
-export function Employees() {
+function Employees() {
   const { can } = useAuth();
   const { data, reload } = useFetch<Employee[]>('/api/employees');
   const [name, setName] = useState('');
@@ -90,5 +94,13 @@ export function Employees() {
         </table>
       </div>
     </>
+  );
+}
+
+export default function Page() {
+  return (
+    <Guard perm={P.EMPLOYEES_VIEW}>
+      <Employees />
+    </Guard>
   );
 }

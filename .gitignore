@@ -8,3 +8,10 @@ coverage/
 .DS_Store
 frontend/dist/
 backend/dist/
+.next/
+frontend/.next/
+next-env.d.ts.bak
+
+
+*.tsbuildinfo
+frontend/next-env.d.ts

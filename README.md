@@ -14,11 +14,11 @@ frontend is treated as fully untrusted.
 ## Repository layout
 
 ```
-backend/    Node + TypeScript + Express API (RBAC, tenant isolation, Slack, Claude)
+backend/    Express (Node.js + TypeScript) API — RBAC, tenant isolation, Slack, Claude
   prisma/   PostgreSQL schema (production data model)
   src/      Application code (see below)
   tests/    Security-focused test suite (46 tests)
-frontend/   React + Vite dashboard with permission-driven navigation
+frontend/   Next.js (App Router, TypeScript) dashboard with permission-driven navigation
 docs/       Architecture & security design
 ```
 
@@ -77,13 +77,20 @@ For production, set `DATA_ADAPTER=prisma`, point `DATABASE_URL` at PostgreSQL, a
 run `npm run prisma:migrate`. The Prisma schema in `backend/prisma/schema.prisma`
 is the authoritative production data model.
 
-### Frontend
+### Frontend (Next.js)
 
 ```bash
 cd frontend
 npm install
-npm run dev          # starts on :5173, proxies /api to the backend
+npm run dev          # next dev on :5173, proxies /api to the backend
+npm run build        # production build
 ```
+
+The frontend is a Next.js App Router app. `next.config.js` rewrites `/api/*` to
+the Express backend (`BACKEND_URL`, default `http://localhost:4000`), so the
+browser talks to a single origin. Auth is a bearer token held in the browser;
+navigation items and pages are permission-gated as a convenience only — the
+Express backend remains the real authorization boundary.
 
 ## Tests
 

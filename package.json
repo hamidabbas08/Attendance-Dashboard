@@ -1,0 +1,16 @@
+{
+  "name": "attendance-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Multi-tenant HR/Attendance SaaS — run backend + frontend together",
+  "scripts": {
+    "setup": "npm install && npm install --prefix backend && npm install --prefix frontend",
+    "dev": "concurrently -k -n backend,frontend -c blue,magenta \"npm --prefix backend run dev\" \"npm --prefix frontend run dev\"",
+    "build": "npm --prefix backend run build && npm --prefix frontend run build",
+    "start": "concurrently -k -n backend,frontend -c blue,magenta \"npm --prefix backend start\" \"npm --prefix frontend start\"",
+    "test": "npm --prefix backend test"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

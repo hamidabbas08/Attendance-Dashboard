@@ -52,28 +52,31 @@ client — it is derived from the authenticated session.
 
 ## Running
 
+This is a **pnpm workspace** (see `pnpm-workspace.yaml`). Use pnpm ≥ 8
+(`corepack enable` gives you the pinned version in `packageManager`).
+
 ### One command (backend + frontend together)
 
 From the repo root:
 
 ```bash
-npm run setup        # installs root + backend + frontend deps (first time only)
-npm run dev          # runs BOTH: Express API on :4000 and Next.js on :5173
+pnpm setup           # = pnpm install; installs the whole workspace (first time)
+pnpm dev             # runs BOTH: Express API on :4000 and Next.js on :5173
 ```
 
-`npm run dev` uses `concurrently` to start the backend and frontend in one
-terminal (prefixed `[backend]` / `[frontend]`). Open http://localhost:5173.
-Other root scripts: `npm run build` (build both), `npm start` (run both built),
-`npm test` (backend security suite).
+`pnpm dev` uses `concurrently` to start the backend and frontend in one terminal
+(prefixed `[backend]` / `[frontend]`). Open http://localhost:5173. Other root
+scripts: `pnpm build` (build both), `pnpm start` (run both built), `pnpm test`
+(backend security suite). Target one package with `pnpm --filter ./backend <cmd>`.
 
 ### Backend only
 
 ```bash
 cd backend
 cp .env.example .env
-npm install
-npm run dev          # starts on :4000 with the in-memory adapter + seeded demo tenants
-npm test             # runs the 46-test security suite
+pnpm install         # installs the workspace
+pnpm dev             # starts on :4000 with the in-memory adapter + seeded demo tenants
+pnpm test            # runs the 46-test security suite
 ```
 
 The default `DATA_ADAPTER=memory` runs the whole app with no database and seeds
@@ -88,16 +91,16 @@ two demo tenants (Acme, Globex) plus a platform admin. Demo logins (password
 | `employee@acme.test` | Employee |
 
 For production, set `DATA_ADAPTER=prisma`, point `DATABASE_URL` at PostgreSQL, and
-run `npm run prisma:migrate`. The Prisma schema in `backend/prisma/schema.prisma`
-is the authoritative production data model.
+run `pnpm prisma:migrate` in `backend/`. The Prisma schema in
+`backend/prisma/schema.prisma` is the authoritative production data model.
 
 ### Frontend (Next.js)
 
 ```bash
 cd frontend
-npm install
-npm run dev          # next dev on :5173, proxies /api to the backend
-npm run build        # production build
+pnpm install
+pnpm dev             # next dev on :5173, proxies /api to the backend
+pnpm build           # production build
 ```
 
 The frontend is a Next.js App Router app styled with **Tailwind CSS**.

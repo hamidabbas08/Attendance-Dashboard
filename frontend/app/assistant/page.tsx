@@ -4,6 +4,7 @@ import { FormEvent, useState } from 'react';
 import { api, ApiError } from '../../lib/api';
 import { Guard } from '../../lib/components';
 import { P } from '../../lib/permissions';
+import { ui } from '../../lib/ui';
 
 interface Answer {
   answer: string;
@@ -42,28 +43,31 @@ function ClaudeAssistant() {
 
   return (
     <>
-      <h2>AI Attendance Assistant</h2>
-      <div className="card">
-        <p className="muted">
+      <h2 className={ui.h2}>AI Attendance Assistant</h2>
+      <div className={ui.card}>
+        <p className={`${ui.muted} mb-2`}>
           Ask natural-language questions. The backend resolves your company, checks your
           permissions, and only sends the data you are allowed to see to Claude.
         </p>
         <form onSubmit={ask}>
           <input
+            className={ui.input}
             placeholder="e.g. How many times was I late this month?"
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             required
           />
-          <div style={{ marginTop: 12 }}>
-            <button disabled={busy}>{busy ? 'Thinking…' : 'Ask'}</button>
+          <div className="mt-3">
+            <button className={ui.btn} disabled={busy}>
+              {busy ? 'Thinking…' : 'Ask'}
+            </button>
           </div>
         </form>
-        {error && <div className="error">{error}</div>}
+        {error && <div className={ui.error}>{error}</div>}
         {answer && (
-          <div className="card" style={{ marginTop: 16 }}>
+          <div className={`${ui.card} mt-4`}>
             <p>{answer.answer}</p>
-            <p className="muted">
+            <p className={ui.muted}>
               scope: {answer.scope} · records considered: {answer.recordCount}
             </p>
           </div>

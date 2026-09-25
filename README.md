@@ -52,7 +52,21 @@ client — it is derived from the authenticated session.
 
 ## Running
 
-### Backend
+### One command (backend + frontend together)
+
+From the repo root:
+
+```bash
+npm run setup        # installs root + backend + frontend deps (first time only)
+npm run dev          # runs BOTH: Express API on :4000 and Next.js on :5173
+```
+
+`npm run dev` uses `concurrently` to start the backend and frontend in one
+terminal (prefixed `[backend]` / `[frontend]`). Open http://localhost:5173.
+Other root scripts: `npm run build` (build both), `npm start` (run both built),
+`npm test` (backend security suite).
+
+### Backend only
 
 ```bash
 cd backend
@@ -86,11 +100,17 @@ npm run dev          # next dev on :5173, proxies /api to the backend
 npm run build        # production build
 ```
 
-The frontend is a Next.js App Router app. `next.config.js` rewrites `/api/*` to
-the Express backend (`BACKEND_URL`, default `http://localhost:4000`), so the
-browser talks to a single origin. Auth is a bearer token held in the browser;
-navigation items and pages are permission-gated as a convenience only — the
-Express backend remains the real authorization boundary.
+The frontend is a Next.js App Router app styled with **Tailwind CSS**.
+`next.config.js` rewrites `/api/*` to the Express backend (`BACKEND_URL`, default
+`http://localhost:4000`), so the browser talks to a single origin.
+
+State is managed with **Zustand** and persisted with its `persist` middleware:
+the auth store (`lib/store.ts`) keeps `token` + `me` in `localStorage`, so a
+signed-in session survives a full page reload. On load the app rehydrates from
+storage and re-validates the token against `/api/auth/me`, so server-side role or
+permission changes take effect immediately. Navigation items and pages are
+permission-gated as a convenience only — the Express backend remains the real
+authorization boundary.
 
 ## Tests
 

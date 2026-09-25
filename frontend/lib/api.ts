@@ -1,19 +1,14 @@
-const TOKEN_KEY = 'attendance.token';
-
-export function getToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return window.localStorage.getItem(TOKEN_KEY);
-}
-export function setToken(token: string | null): void {
-  if (typeof window === 'undefined') return;
-  if (token) window.localStorage.setItem(TOKEN_KEY, token);
-  else window.localStorage.removeItem(TOKEN_KEY);
-}
+import { useAuthStore } from './store';
 
 export interface ApiError {
   status: number;
   code: string;
   message: string;
+}
+
+/** The current bearer token, sourced from the persisted auth store. */
+export function getToken(): string | null {
+  return useAuthStore.getState().token;
 }
 
 /** Thin fetch wrapper that attaches the bearer token and normalises errors. */

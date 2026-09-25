@@ -6,8 +6,10 @@ import { requirePermission } from '../middleware/authorize';
 import { validateBody } from '../middleware/validate';
 import { rateLimit } from '../middleware/rateLimit';
 import { UnauthorizedError } from '../errors';
+import { AppError } from '../errors';
 import { PERMISSIONS } from '../rbac/permissions';
 import { processSlackEvent } from '../slack/eventHandler';
+import { fetchSlackMembers } from '../slack/members';
 import { verifySlackSignature } from '../slack/verify';
 import { serializeSlackWorkspace } from './serializers';
 
@@ -51,6 +53,54 @@ slackRouter.post(
       metadata: { slackTeamId: req.body.slackTeamId },
     });
     res.json(serializeSlackWorkspace(ws));
+  },
+);
+
+// Import the workspace's members from Slack as employees (upsert by slack id).
+slackRouter.post(
+  '/sync-members',
+  requirePermission(PERMISSIONS.EMPLOYEES_CREATE),
+  async (req, res, next) => {
+    try {
+      const principal = principalOf(req);
+      const repo = repoFor(req);
+      const ws = repo.getSlackWorkspace();
+      if (!ws || !ws.accessToken) {
+        throw new AppError(
+          400,
+          'Add your Slack bot token above before syncing members',
+          'slack_token_missing',
+        );
+      }
+      const members = await fetchSlackMembers(ws.accessToken);
+      let imported = 0;
+      let updated = 0;
+      for (const m of members) {
+        const existing = repo.findEmployeeBySlackUser(principal.companyId!, m.slackUserId);
+        if (existing) {
+          repo.updateEmployee(existing.id, { name: m.name, email: m.email || existing.email });
+          updated += 1;
+        } else {
+          repo.createEmployee({
+            userId: null,
+            shiftId: null,
+            slackUserId: m.slackUserId,
+            name: m.name,
+            email: m.email,
+            status: 'active',
+          });
+          imported += 1;
+        }
+      }
+      recordAudit(req, principal, {
+        action: 'slack.sync_members',
+        resource: 'employee',
+        metadata: { imported, updated, total: members.length },
+      });
+      res.json({ imported, updated, total: members.length });
+    } catch (err) {
+      next(err);
+    }
   },
 );
 

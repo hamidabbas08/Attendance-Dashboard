@@ -6,7 +6,10 @@ import { api } from './api';
 
 export interface Me {
   userId: string;
+  name: string | null;
+  email: string | null;
   companyId: string | null;
+  companyName: string | null;
   roles: string[];
   permissions: string[];
   isPlatformAdmin: boolean;

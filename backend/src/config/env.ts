@@ -14,6 +14,12 @@ export const config = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '8h',
   dataAdapter: (process.env.DATA_ADAPTER ?? 'memory') as 'memory' | 'prisma',
   slackSigningSecret: process.env.SLACK_SIGNING_SECRET ?? 'dev-slack-secret',
+  // Slack "Sign in with Slack" (OpenID Connect) credentials.
+  slackClientId: process.env.SLACK_CLIENT_ID ?? '',
+  slackClientSecret: process.env.SLACK_CLIENT_SECRET ?? '',
+  slackOauthRedirectUrl:
+    process.env.SLACK_OAUTH_REDIRECT_URL ?? 'http://localhost:4000/api/auth/slack/callback',
+  frontendUrl: process.env.FRONTEND_URL ?? 'http://localhost:5173',
   anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? '',
   claudeModel: process.env.CLAUDE_MODEL ?? 'claude-sonnet-5',
   corsOrigin: process.env.CORS_ORIGIN ?? 'http://localhost:5173',

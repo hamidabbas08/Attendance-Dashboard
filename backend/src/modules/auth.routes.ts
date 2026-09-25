@@ -10,6 +10,7 @@ import {
   resolveSlackLogin,
 } from '../auth/slackOAuth';
 import { config } from '../config/env';
+import { store } from '../data/store';
 import { AppError } from '../errors';
 import { authenticate } from '../middleware/authenticate';
 import { principalOf } from '../middleware/context';
@@ -84,9 +85,14 @@ authRouter.post(
 // Returns the caller's server-derived identity and permissions (drives the UI).
 authRouter.get('/me', authenticate, (req, res) => {
   const p = principalOf(req);
+  const user = store.users.get(p.userId);
+  const company = p.companyId ? store.companies.get(p.companyId) : undefined;
   res.json({
     userId: p.userId,
+    name: user?.name ?? null,
+    email: user?.email ?? null,
     companyId: p.companyId,
+    companyName: company?.name ?? null,
     roles: p.roles,
     permissions: [...p.permissions],
     isPlatformAdmin: p.isPlatformAdmin,

@@ -1,10 +1,24 @@
 import { Router } from 'express';
 import { recordAudit } from '../audit/auditService';
+import { buildYearMatrix } from '../attendance/summary';
 import { principalOf, repoFor } from '../middleware/context';
 import { requirePermission } from '../middleware/authorize';
 import { PERMISSIONS } from '../rbac/permissions';
 
 export const reportsRouter = Router();
+
+// Per-employee, per-month attendance matrix for a whole year.
+reportsRouter.get(
+  '/attendance/matrix',
+  requirePermission(PERMISSIONS.REPORTS_VIEW),
+  (req, res) => {
+    const year = Number(req.query.year) || new Date().getUTCFullYear();
+    const repo = repoFor(req);
+    const employees = repo.listEmployees();
+    const records = repo.listAttendance({ from: `${year}-01-01`, to: `${year}-12-31` });
+    res.json(buildYearMatrix(employees, records, year));
+  },
+);
 
 function buildSummary(req: Parameters<typeof repoFor>[0]) {
   const repo = repoFor(req);

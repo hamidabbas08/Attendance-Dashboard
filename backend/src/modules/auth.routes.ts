@@ -10,6 +10,7 @@ import {
   resolveSlackLogin,
 } from '../auth/slackOAuth';
 import { config } from '../config/env';
+import { AppError } from '../errors';
 import { authenticate } from '../middleware/authenticate';
 import { principalOf } from '../middleware/context';
 import { rateLimit } from '../middleware/rateLimit';
@@ -59,8 +60,10 @@ authRouter.get('/slack/callback', async (req, res) => {
     const identity = await exchangeCodeForIdentity(code);
     const { token } = resolveSlackLogin(identity);
     redirectToFrontend(res, { token });
-  } catch {
-    redirectToFrontend(res, { auth_error: 'login_failed' });
+  } catch (err) {
+    // Surface a specific reason so the login screen can explain what happened.
+    const code = err instanceof AppError ? err.code : 'login_failed';
+    redirectToFrontend(res, { auth_error: code });
   }
 });
 

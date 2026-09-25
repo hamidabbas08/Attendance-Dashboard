@@ -1,7 +1,9 @@
 import { randomBytes } from 'crypto';
 import { config } from '../config/env';
 import { store } from '../data/store';
-import { UnauthorizedError } from '../errors';
+import { User } from '../data/types';
+import { AppError, UnauthorizedError } from '../errors';
+import { ROLES } from '../rbac/roles';
 import { issueToken } from './tokens';
 
 /**
@@ -24,6 +26,7 @@ export interface SlackIdentity {
   userId: string;
   email: string | null;
   name: string | null;
+  teamName: string | null;
 }
 
 // --- CSRF state store (short-lived, single-use) --------------------------------
@@ -96,28 +99,48 @@ export async function exchangeCodeForIdentity(code: string): Promise<SlackIdenti
     userId,
     email: (info['email'] as string) ?? null,
     name: (info['name'] as string) ?? null,
+    teamName:
+      (info['https://slack.com/team_name'] as string) ??
+      (info['https://slack.com/team_domain'] as string) ??
+      null,
   };
 }
 
 /**
  * Resolve a Slack identity to one of our users and issue a JWT.
  *
- * 1. team_id → linked company (slack_workspaces). No link → rejected.
+ * 1. team_id → linked company (slack_workspaces).
  * 2. Within that company: match by slack_user_id, else by email.
  * 3. Issue our own JWT for that user. (Isolated + testable, no network.)
+ *
+ * When auto-provisioning is enabled (default), an unlinked workspace creates a
+ * new company whose first user is the owner, and later members auto-join that
+ * same company as employees. Each new company is fully isolated, so this only
+ * onboards new tenants — it never grants access to an existing one's data.
  */
-export function resolveSlackLogin(identity: SlackIdentity): {
-  token: string;
-  userId: string;
-} {
+export function resolveSlackLogin(
+  identity: SlackIdentity,
+  opts?: { autoProvision?: boolean },
+): { token: string; userId: string } {
+  const autoProvision = opts?.autoProvision ?? config.slackAutoProvision;
+
   const workspace = [...store.slackWorkspaces.values()].find(
     (w) => w.slackTeamId === identity.teamId,
   );
-  if (!workspace) {
-    throw new UnauthorizedError('This Slack workspace is not linked to a company');
-  }
-  const companyId = workspace.companyId;
 
+  if (!workspace) {
+    if (!autoProvision) {
+      throw new AppError(
+        401,
+        'This Slack workspace is not linked to a company',
+        'workspace_not_linked',
+      );
+    }
+    const owner = provisionCompanyWithOwner(identity);
+    return { token: issueToken(owner.id), userId: owner.id };
+  }
+
+  const companyId = workspace.companyId;
   const users = [...store.users.values()].filter((u) => u.companyId === companyId);
   let user =
     users.find((u) => u.slackUserId && u.slackUserId === identity.userId) ??
@@ -125,8 +148,19 @@ export function resolveSlackLogin(identity: SlackIdentity): {
       ? users.find((u) => u.email.toLowerCase() === identity.email!.toLowerCase())
       : undefined);
 
-  if (!user || user.status !== 'active') {
-    throw new UnauthorizedError('No active account for this Slack user in this company');
+  if (!user) {
+    if (!autoProvision) {
+      throw new AppError(
+        401,
+        'No active account for this Slack user in this company',
+        'no_account',
+      );
+    }
+    user = provisionEmployee(companyId, identity);
+  }
+
+  if (user.status !== 'active') {
+    throw new AppError(401, 'This account is disabled', 'account_disabled');
   }
 
   // Link the Slack user id on first login so future logins match directly.
@@ -136,4 +170,94 @@ export function resolveSlackLogin(identity: SlackIdentity): {
   }
 
   return { token: issueToken(user.id), userId: user.id };
+}
+
+function slugify(input: string): string {
+  return (
+    input
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'company'
+  );
+}
+
+// Slack-only accounts have no password; store a hash that can never verify.
+const UNUSABLE_PASSWORD = 'slack-oauth$no-password';
+
+/** Create a brand-new, isolated company, link the workspace, and add the owner. */
+function provisionCompanyWithOwner(identity: SlackIdentity): User {
+  const now = store.now();
+  const companyName = identity.teamName || 'My Company';
+
+  const companyId = store.id();
+  store.companies.set(companyId, {
+    id: companyId,
+    name: companyName,
+    slug: `${slugify(companyName)}-${companyId.slice(0, 6)}`,
+    status: 'active',
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  const wsId = store.id();
+  store.slackWorkspaces.set(wsId, {
+    id: wsId,
+    companyId,
+    slackTeamId: identity.teamId,
+    workspaceName: companyName,
+    accessToken: '', // bot token is added later via the Slack Integration page
+    status: 'active',
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  const userId = store.id();
+  const owner: User = {
+    id: userId,
+    companyId,
+    slackUserId: identity.userId,
+    name: identity.name || 'Owner',
+    email: identity.email || `${identity.userId}@${identity.teamId}.slack`,
+    passwordHash: UNUSABLE_PASSWORD,
+    status: 'active',
+    roles: [ROLES.COMPANY_OWNER],
+    createdAt: now,
+    updatedAt: now,
+  };
+  store.users.set(userId, owner);
+  return owner;
+}
+
+/** Add a new workspace member to an existing company as an employee. */
+function provisionEmployee(companyId: string, identity: SlackIdentity): User {
+  const now = store.now();
+  const userId = store.id();
+  const user: User = {
+    id: userId,
+    companyId,
+    slackUserId: identity.userId,
+    name: identity.name || 'Employee',
+    email: identity.email || `${identity.userId}@${identity.teamId}.slack`,
+    passwordHash: UNUSABLE_PASSWORD,
+    status: 'active',
+    roles: [ROLES.EMPLOYEE],
+    createdAt: now,
+    updatedAt: now,
+  };
+  store.users.set(userId, user);
+
+  const empId = store.id();
+  store.employees.set(empId, {
+    id: empId,
+    companyId,
+    userId,
+    shiftId: null,
+    slackUserId: identity.userId,
+    name: user.name,
+    email: user.email,
+    status: 'active',
+    createdAt: now,
+    updatedAt: now,
+  });
+  return user;
 }

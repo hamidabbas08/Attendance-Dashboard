@@ -16,6 +16,9 @@ const AUTH_ERRORS: Record<string, string> = {
   missing_code: 'Slack did not return an authorization code.',
   login_failed: 'Could not sign you in with Slack.',
   access_denied: 'Slack sign-in was cancelled.',
+  workspace_not_linked: 'Your Slack workspace is not linked to a company yet.',
+  no_account: 'You do not have an account in this company.',
+  account_disabled: 'Your account has been disabled.',
 };
 
 /**

@@ -18,8 +18,9 @@ interface Item {
 const ITEMS: Item[] = [
   { href: '/', label: 'Dashboard' },
   { href: '/my-attendance', label: 'My Attendance', perm: P.ATTENDANCE_VIEW_OWN },
-  { href: '/employees', label: 'Employees', perm: P.EMPLOYEES_VIEW },
+  { href: '/my-profile', label: 'My Profile' },
   { href: '/attendance', label: 'Attendance', perm: P.ATTENDANCE_VIEW_ALL },
+  { href: '/team', label: 'Team', perm: P.USERS_VIEW },
   { href: '/shifts', label: 'Shifts', perm: P.SHIFTS_VIEW },
   { href: '/reports', label: 'Reports', perm: P.REPORTS_VIEW },
   { href: '/assistant', label: 'AI Assistant', perm: P.CLAUDE_QUERY_OWN },
@@ -32,9 +33,9 @@ export function Shell({ children }: { children: ReactNode }) {
 
   return (
     <div className="grid grid-cols-[240px_1fr] min-h-screen">
-      <aside className="bg-panel border-r border-line p-5">
-        <div className="font-bold text-lg px-3 pt-2 pb-5">🕐 Attendance</div>
-        <nav>
+      <aside className="bg-panel border-r border-line flex flex-col">
+        <div className="font-bold text-lg px-5 pt-5 pb-4">🕐 Attendance</div>
+        <nav className="flex-1 px-3 overflow-y-auto">
           {ITEMS.filter((i) => !i.perm || can(i.perm)).map((i) => {
             const active = pathname === i.href;
             return (
@@ -50,18 +51,19 @@ export function Shell({ children }: { children: ReactNode }) {
             );
           })}
         </nav>
-      </aside>
-      <main className="px-8 py-7">
-        <div className="flex justify-between items-center mb-6">
-          <span className="bg-panel2 px-2.5 py-1 rounded-full text-xs text-muted">
-            {me?.isPlatformAdmin ? 'Platform Admin' : me?.roles.join(', ')}
-          </span>
-          <button className={ui.btnGhost} onClick={logout}>
+        <div className="border-t border-line p-3">
+          <div className="px-3 pb-2">
+            <div className="text-sm truncate">{me?.name ?? me?.roles.join(', ')}</div>
+            <div className="text-muted text-xs">
+              {me?.isPlatformAdmin ? 'Platform Admin' : me?.roles.join(', ')}
+            </div>
+          </div>
+          <button className={`${ui.btnGhost} w-full`} onClick={logout}>
             Sign out
           </button>
         </div>
-        {children}
-      </main>
+      </aside>
+      <main className="px-8 py-7">{children}</main>
     </div>
   );
 }

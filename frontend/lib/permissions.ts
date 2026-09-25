@@ -2,6 +2,7 @@
 export const P = {
   COMPANY_VIEW: 'company:view',
   EMPLOYEES_VIEW: 'employees:view',
+  USERS_VIEW: 'users:view',
   ATTENDANCE_VIEW_OWN: 'attendance:view_own',
   ATTENDANCE_VIEW_ALL: 'attendance:view_all',
   SHIFTS_VIEW: 'shifts:view',

@@ -17,7 +17,6 @@ interface AuthState {
   token: string | null;
   me: Me | null;
   loading: boolean; // true while /auth/me is in flight
-  hydrated: boolean; // true once persisted state has been read from storage
   authError: string | null; // last login error (e.g. from a Slack redirect)
   login: (email: string, password: string) => Promise<void>;
   setSession: (token: string) => Promise<void>;
@@ -45,7 +44,6 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       me: null,
       loading: false,
-      hydrated: false,
       authError: null,
 
       async login(email, password) {
@@ -99,9 +97,6 @@ export const useAuthStore = create<AuthState>()(
       ),
       // Only persist identity; never persist transient flags.
       partialize: (s) => ({ token: s.token, me: s.me }),
-      onRehydrateStorage: () => () => {
-        useAuthStore.setState({ hydrated: true });
-      },
     },
   ),
 );

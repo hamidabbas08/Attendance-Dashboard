@@ -16,6 +16,7 @@ body {
   background: var(--bg);
   color: var(--text);
 }
+h2 { margin-top: 0; }
 a { color: var(--accent); text-decoration: none; }
 .layout { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
 .sidebar { background: var(--panel); border-right: 1px solid var(--border); padding: 20px 12px; }
@@ -39,6 +40,7 @@ button {
   font-weight: 600; cursor: pointer;
 }
 button.ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
+button:disabled { opacity: 0.6; cursor: default; }
 input, select {
   background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
   padding: 10px 12px; border-radius: 8px; width: 100%;

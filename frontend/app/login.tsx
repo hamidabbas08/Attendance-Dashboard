@@ -3,6 +3,7 @@
 import { FormEvent, useState } from 'react';
 import { ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
+import { ui } from '../lib/ui';
 
 export function Login() {
   const { login } = useAuth();
@@ -25,21 +26,28 @@ export function Login() {
   }
 
   return (
-    <div className="login">
-      <div className="brand">Attendance SaaS</div>
-      <div className="card">
+    <div className="max-w-sm mx-auto mt-20">
+      <div className="font-bold text-lg px-3 pb-5">Attendance SaaS</div>
+      <div className={ui.card}>
         <form onSubmit={onSubmit}>
-          <label>Email</label>
-          <input value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
-          <label>Password</label>
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-          <div style={{ marginTop: 18 }}>
-            <button disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
+          <label className={ui.label}>Email</label>
+          <input className={ui.input} value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
+          <label className={ui.label}>Password</label>
+          <input
+            className={ui.input}
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <div className="mt-4">
+            <button className={ui.btn} disabled={busy}>
+              {busy ? 'Signing in…' : 'Sign in'}
+            </button>
           </div>
-          {error && <div className="error">{error}</div>}
+          {error && <div className={ui.error}>{error}</div>}
         </form>
       </div>
-      <p className="muted" style={{ fontSize: 13 }}>
+      <p className="text-muted text-[13px]">
         Demo logins (password <code>Password123!</code>): owner@acme.test, hr@acme.test,
         employee@acme.test, admin@platform.test
       </p>

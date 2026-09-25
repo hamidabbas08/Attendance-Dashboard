@@ -5,6 +5,7 @@ import { api, ApiError } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { Guard } from '../../lib/components';
 import { P } from '../../lib/permissions';
+import { ui } from '../../lib/ui';
 import { useFetch } from '../../lib/useFetch';
 
 interface Status {
@@ -32,41 +33,42 @@ function SlackSettings() {
 
   return (
     <>
-      <h2>Slack Integration</h2>
-      <div className="card">
-        <p>
+      <h2 className={ui.h2}>Slack Integration</h2>
+      <div className={ui.card}>
+        <p className="mb-2">
           Status:{' '}
           {data?.connected ? (
-            <span className="pill present">Connected — {data.workspace?.workspaceName}</span>
+            <span className="pill pill-present">Connected — {data.workspace?.workspaceName}</span>
           ) : (
-            <span className="pill absent">Not connected</span>
+            <span className="pill pill-absent">Not connected</span>
           )}
         </p>
-        <p className="muted">
+        <p className={ui.muted}>
           Each Slack workspace maps to exactly one company. Access tokens are stored
           server-side and never returned to the browser.
         </p>
       </div>
 
       {can('slack:configure') && (
-        <div className="card">
-          <h3>Configure workspace</h3>
+        <div className={ui.card}>
+          <h3 className="font-semibold mb-1">Configure workspace</h3>
           <form onSubmit={save}>
-            <label>Slack Team ID</label>
-            <input value={form.slackTeamId} onChange={(e) => setForm({ ...form, slackTeamId: e.target.value })} required />
-            <label>Workspace name</label>
-            <input value={form.workspaceName} onChange={(e) => setForm({ ...form, workspaceName: e.target.value })} required />
-            <label>Bot access token</label>
+            <label className={ui.label}>Slack Team ID</label>
+            <input className={ui.input} value={form.slackTeamId} onChange={(e) => setForm({ ...form, slackTeamId: e.target.value })} required />
+            <label className={ui.label}>Workspace name</label>
+            <input className={ui.input} value={form.workspaceName} onChange={(e) => setForm({ ...form, workspaceName: e.target.value })} required />
+            <label className={ui.label}>Bot access token</label>
             <input
+              className={ui.input}
               type="password"
               value={form.accessToken}
               onChange={(e) => setForm({ ...form, accessToken: e.target.value })}
               required
             />
-            <div style={{ marginTop: 16 }}>
-              <button>Save</button>
+            <div className="mt-4">
+              <button className={ui.btn}>Save</button>
             </div>
-            {error && <div className="error">{error}</div>}
+            {error && <div className={ui.error}>{error}</div>}
           </form>
         </div>
       )}

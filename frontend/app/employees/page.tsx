@@ -5,6 +5,7 @@ import { api, ApiError } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { Guard } from '../../lib/components';
 import { P } from '../../lib/permissions';
+import { ui } from '../../lib/ui';
 import { useFetch } from '../../lib/useFetch';
 
 interface Employee {
@@ -46,44 +47,44 @@ function Employees() {
 
   return (
     <>
-      <h2>Employees</h2>
+      <h2 className={ui.h2}>Employees</h2>
 
       {can('employees:create') && (
-        <div className="card">
-          <form className="row" onSubmit={add}>
-            <div style={{ flex: 1 }}>
-              <label>Name</label>
-              <input value={name} onChange={(e) => setName(e.target.value)} required />
+        <div className={ui.card}>
+          <form className="flex gap-3 items-end" onSubmit={add}>
+            <div className="flex-1">
+              <label className={ui.label}>Name</label>
+              <input className={ui.input} value={name} onChange={(e) => setName(e.target.value)} required />
             </div>
-            <div style={{ flex: 1 }}>
-              <label>Email</label>
-              <input value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <div className="flex-1">
+              <label className={ui.label}>Email</label>
+              <input className={ui.input} value={email} onChange={(e) => setEmail(e.target.value)} required />
             </div>
-            <button>Add employee</button>
+            <button className={ui.btn}>Add employee</button>
           </form>
-          {error && <div className="error">{error}</div>}
+          {error && <div className={ui.error}>{error}</div>}
         </div>
       )}
 
-      <div className="card">
-        <table>
+      <div className={ui.card}>
+        <table className={ui.table}>
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Status</th>
-              {can('employees:delete') && <th></th>}
+              <th className={ui.th}>Name</th>
+              <th className={ui.th}>Email</th>
+              <th className={ui.th}>Status</th>
+              {can('employees:delete') && <th className={ui.th}></th>}
             </tr>
           </thead>
           <tbody>
             {(data ?? []).map((e) => (
               <tr key={e.id}>
-                <td>{e.name}</td>
-                <td>{e.email}</td>
-                <td>{e.status}</td>
+                <td className={ui.td}>{e.name}</td>
+                <td className={ui.td}>{e.email}</td>
+                <td className={ui.td}>{e.status}</td>
                 {can('employees:delete') && (
-                  <td>
-                    <button className="ghost" onClick={() => remove(e.id)}>
+                  <td className={ui.td}>
+                    <button className={ui.btnGhost} onClick={() => remove(e.id)}>
                       Remove
                     </button>
                   </td>

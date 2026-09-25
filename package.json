@@ -3,14 +3,18 @@
   "version": "1.0.0",
   "private": true,
   "description": "Multi-tenant HR/Attendance SaaS — run backend + frontend together",
+  "packageManager": "pnpm@10.33.0",
   "scripts": {
-    "setup": "npm install && npm install --prefix backend && npm install --prefix frontend",
-    "dev": "concurrently -k -n backend,frontend -c blue,magenta \"npm --prefix backend run dev\" \"npm --prefix frontend run dev\"",
-    "build": "npm --prefix backend run build && npm --prefix frontend run build",
-    "start": "concurrently -k -n backend,frontend -c blue,magenta \"npm --prefix backend start\" \"npm --prefix frontend start\"",
-    "test": "npm --prefix backend test"
+    "setup": "pnpm install",
+    "dev": "concurrently -k -n backend,frontend -c blue,magenta \"pnpm --filter ./backend dev\" \"pnpm --filter ./frontend dev\"",
+    "build": "pnpm --filter ./backend build && pnpm --filter ./frontend build",
+    "start": "concurrently -k -n backend,frontend -c blue,magenta \"pnpm --filter ./backend start\" \"pnpm --filter ./frontend start\"",
+    "test": "pnpm --filter ./backend test"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["@prisma/client", "prisma"]
   }
 }

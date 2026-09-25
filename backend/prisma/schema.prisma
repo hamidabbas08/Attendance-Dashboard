@@ -1,0 +1,262 @@
+// Multi-tenant HR/Attendance SaaS — production database schema.
+// Every company-owned table carries an explicit company_id.
+// This schema is the authoritative production data model; the in-memory adapter
+// used for tests mirrors these entities exactly (see src/data/types.ts).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  active
+  disabled
+}
+
+enum EmployeeStatus {
+  active
+  inactive
+}
+
+enum AttendanceStatus {
+  present
+  late
+  absent
+  leave
+  half_day
+  off_day
+  holiday
+}
+
+model Company {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  status    String   @default("active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  users             User[]
+  employees         Employee[]
+  shifts            Shift[]
+  attendanceRule    AttendanceRule?
+  attendanceRecords AttendanceRecord[]
+  slackWorkspace    SlackWorkspace?
+  slackChannels     SlackChannel[]
+  attendanceEvents  AttendanceEvent[]
+  auditLogs         AuditLog[]
+  userRoles         UserRole[]
+
+  @@map("companies")
+}
+
+model User {
+  id           String     @id @default(uuid())
+  // Nullable ONLY for the platform admin, who has no owning company.
+  companyId    String?    @map("company_id")
+  slackUserId  String?    @map("slack_user_id")
+  name         String
+  email        String     @unique
+  passwordHash String     @map("password_hash")
+  status       UserStatus @default(active)
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  company   Company?   @relation(fields: [companyId], references: [id])
+  userRoles UserRole[]
+  employee  Employee?
+
+  @@index([companyId])
+  @@index([slackUserId])
+  @@map("users")
+}
+
+model Role {
+  id          String           @id @default(uuid())
+  key         String           @unique // e.g. "company_owner"
+  name        String
+  permissions RolePermission[]
+  userRoles   UserRole[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id    String           @id @default(uuid())
+  key   String           @unique // e.g. "employees:create"
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String @map("role_id")
+  permissionId String @map("permission_id")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  userId    String  @map("user_id")
+  roleId    String  @map("role_id")
+  // Company the assignment is scoped to (null for platform admin).
+  companyId String? @map("company_id")
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role    Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  company Company? @relation(fields: [companyId], references: [id])
+
+  @@id([userId, roleId])
+  @@index([companyId])
+  @@map("user_roles")
+}
+
+model Employee {
+  id           String         @id @default(uuid())
+  companyId    String         @map("company_id")
+  userId       String?        @unique @map("user_id")
+  shiftId      String?        @map("shift_id")
+  slackUserId  String?        @map("slack_user_id")
+  name         String
+  email        String
+  status       EmployeeStatus @default(active)
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  company           Company            @relation(fields: [companyId], references: [id])
+  user              User?              @relation(fields: [userId], references: [id])
+  shift             Shift?             @relation(fields: [shiftId], references: [id])
+  attendanceRecords AttendanceRecord[]
+
+  @@index([companyId])
+  @@index([companyId, slackUserId])
+  @@map("employees")
+}
+
+model Shift {
+  id         String  @id @default(uuid())
+  companyId  String  @map("company_id")
+  name       String
+  startTime  String  @map("start_time") // "09:00"
+  endTime    String  @map("end_time")   // "18:00"
+  graceMins  Int     @default(15) @map("grace_mins")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  company   Company    @relation(fields: [companyId], references: [id])
+  employees Employee[]
+
+  @@index([companyId])
+  @@map("shifts")
+}
+
+model AttendanceRule {
+  id            String   @id @default(uuid())
+  companyId     String   @unique @map("company_id")
+  // JSON: array of ISO weekday numbers considered working days, e.g. [1,2,3,4,5]
+  workingDays   Json     @map("working_days")
+  defaultShiftId String? @map("default_shift_id")
+  // JSON array of holiday dates "YYYY-MM-DD"
+  holidays      Json     @default("[]")
+  // JSON array of enabled status keys, extensible per company
+  statuses      Json     @default("[]")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@map("attendance_rules")
+}
+
+model AttendanceRecord {
+  id         String           @id @default(uuid())
+  companyId  String           @map("company_id")
+  employeeId String           @map("employee_id")
+  date       String           // "YYYY-MM-DD"
+  checkIn    String?          @map("check_in") // "HH:MM"
+  checkOut   String?          @map("check_out")
+  status     AttendanceStatus
+  createdAt  DateTime         @default(now()) @map("created_at")
+  updatedAt  DateTime         @updatedAt @map("updated_at")
+
+  company  Company  @relation(fields: [companyId], references: [id])
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@unique([companyId, employeeId, date])
+  @@index([companyId, date])
+  @@map("attendance_records")
+}
+
+model SlackWorkspace {
+  id            String   @id @default(uuid())
+  companyId     String   @unique @map("company_id")
+  slackTeamId   String   @unique @map("slack_team_id")
+  workspaceName String   @map("workspace_name")
+  // Stored server-side only; NEVER serialized to any API response.
+  accessToken   String   @map("access_token")
+  status        String   @default("active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  company  Company        @relation(fields: [companyId], references: [id])
+  channels SlackChannel[]
+
+  @@map("slack_workspaces")
+}
+
+model SlackChannel {
+  id             String   @id @default(uuid())
+  companyId      String   @map("company_id")
+  workspaceId    String   @map("workspace_id")
+  slackChannelId String   @map("slack_channel_id")
+  name           String
+  purpose        String   @default("attendance")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  company   Company        @relation(fields: [companyId], references: [id])
+  workspace SlackWorkspace @relation(fields: [workspaceId], references: [id])
+
+  @@index([companyId])
+  @@map("slack_channels")
+}
+
+model AttendanceEvent {
+  id          String   @id @default(uuid())
+  companyId   String   @map("company_id")
+  employeeId  String?  @map("employee_id")
+  slackUserId String   @map("slack_user_id")
+  type        String   // "check_in" | "check_out"
+  rawText     String   @map("raw_text")
+  occurredAt  DateTime @map("occurred_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@map("attendance_events")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  companyId  String?  @map("company_id")
+  userId     String?  @map("user_id")
+  action     String
+  resource   String
+  resourceId String?  @map("resource_id")
+  metadata   Json     @default("{}")
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  company Company? @relation(fields: [companyId], references: [id])
+
+  @@index([companyId, createdAt])
+  @@map("audit_logs")
+}

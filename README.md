@@ -105,7 +105,17 @@ pnpm build           # production build
 
 The frontend is a Next.js App Router app styled with **Tailwind CSS**.
 `next.config.js` rewrites `/api/*` to the Express backend (`BACKEND_URL`, default
-`http://localhost:4000`), so the browser talks to a single origin.
+`http://localhost:4000`), so the browser talks to a single origin. Point it at a
+deployed backend by setting `BACKEND_URL`, e.g.
+`BACKEND_URL=https://vibrant-wasp-attendance-backend.cloud.nexlayer.ai`.
+
+**Login is "Sign in with Slack" only** — there is no email/password form. The
+button navigates to `/api/auth/slack/start`, which redirects to Slack's consent
+screen; Slack calls back to the backend, which resolves the tenant + user from
+the Slack identity (`team_id` → company, then `slack_user_id`/email), issues a
+JWT, and redirects the browser back to the frontend with the token. The backend
+also keeps a credential-login endpoint (`POST /api/auth/login`) for tests and
+automation, but it is not exposed in the UI.
 
 State is managed with **Zustand** and persisted with its `persist` middleware:
 the auth store (`lib/store.ts`) keeps `token` + `me` in `localStorage`, so a
@@ -114,6 +124,32 @@ storage and re-validates the token against `/api/auth/me`, so server-side role o
 permission changes take effect immediately. Navigation items and pages are
 permission-gated as a convenience only — the Express backend remains the real
 authorization boundary.
+
+## Deployment & Slack-login environment
+
+Backend (e.g. `https://vibrant-wasp-attendance-backend.cloud.nexlayer.ai`) needs:
+
+```bash
+JWT_SECRET=<long random>
+FRONTEND_URL=https://<your-deployed-frontend>          # where login redirects back to
+CORS_ORIGIN=https://<your-deployed-frontend>
+
+# Slack app credentials (api.slack.com/apps → Basic Information)
+SLACK_CLIENT_ID=...
+SLACK_CLIENT_SECRET=...
+SLACK_SIGNING_SECRET=...
+SLACK_OAUTH_REDIRECT_URL=https://vibrant-wasp-attendance-backend.cloud.nexlayer.ai/api/auth/slack/callback
+```
+
+In the Slack app: enable **OpenID Connect / "Sign in with Slack"**, add the
+scopes `openid email profile`, and register the exact `SLACK_OAUTH_REDIRECT_URL`
+as a Redirect URL under **OAuth & Permissions**.
+
+Frontend deploy: set `BACKEND_URL` to the backend URL above.
+
+> A workspace must be linked to a company first (owner → **Slack Integration**
+> page, or a seeded `slack_workspaces` row) before its members can sign in — an
+> unlinked `team_id` is rejected, which is what keeps tenants isolated.
 
 ## Tests
 
@@ -125,12 +161,14 @@ external services:
 - `idor.test.ts` — IDOR & privilege-escalation attempts are rejected
 - `roles.test.ts` — founder / HR / employee / platform-admin API boundaries (401/403)
 - `slack.test.ts` — signature verification and Slack workspace isolation
+- `slackLogin.test.ts` — "Sign in with Slack" resolves the tenant + user, and
+  cannot cross tenants (unlinked team / foreign email rejected)
 - `claude.test.ts` — the permission-gated Claude data-access flow
 - `attendanceEngine.test.ts` — configurable per-shift status calculation
 
 ```
-Test Suites: 7 passed
-Tests:       46 passed
+Test Suites: 8 passed
+Tests:       51 passed
 ```
 
 ## Security properties enforced

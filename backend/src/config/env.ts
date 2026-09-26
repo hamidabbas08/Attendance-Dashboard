@@ -25,6 +25,9 @@ export const config = {
   slackBotToken: process.env.SLACK_BOT_TOKEN ?? '',
   slackTeamId: process.env.SLACK_TEAM_ID ?? '',
   slackWorkspaceName: process.env.SLACK_WORKSPACE_NAME ?? '',
+  // Load the bundled spreadsheet attendance dataset into a company on provision
+  // (in-memory adapter preview). Default on; set IMPORT_ATTENDANCE=false to skip.
+  importAttendance: (process.env.IMPORT_ATTENDANCE ?? 'true').toLowerCase() !== 'false',
   // When true (default), the first Slack login from an unlinked workspace
   // creates a company + owner; later members auto-join as employees. Set
   // SLACK_AUTO_PROVISION=false to require workspaces to be linked manually.

@@ -81,10 +81,19 @@ slackRouter.post(
       const members = await fetchSlackMembers(token);
       let imported = 0;
       let updated = 0;
+      const roster = repo.listEmployees();
       for (const m of members) {
-        const existing = repo.findEmployeeBySlackUser(principal.companyId!, m.slackUserId);
+        // Match by Slack id, else by name (links a Slack member to an already
+        // imported employee that has no Slack id yet — avoids duplicates).
+        const existing =
+          roster.find((e) => e.slackUserId === m.slackUserId) ??
+          roster.find((e) => !e.slackUserId && e.name.toLowerCase() === m.name.toLowerCase());
         if (existing) {
-          repo.updateEmployee(existing.id, { name: m.name, email: m.email || existing.email });
+          repo.updateEmployee(existing.id, {
+            name: m.name,
+            email: m.email || existing.email,
+            slackUserId: m.slackUserId,
+          });
           updated += 1;
         } else {
           repo.createEmployee({

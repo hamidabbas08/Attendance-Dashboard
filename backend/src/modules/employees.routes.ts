@@ -12,6 +12,40 @@ employeesRouter.get('/', requirePermission(PERMISSIONS.EMPLOYEES_VIEW), (req, re
   res.json(repoFor(req).listEmployees());
 });
 
+const hhmm = z.string().regex(/^\d{2}:\d{2}$/, 'Expected HH:MM');
+const shiftSchema = z.object({
+  startTime: hhmm,
+  endTime: hhmm,
+  graceMins: z.number().int().min(0).max(240).default(15),
+});
+
+// Upsert the shift for a single employee (create one if they have none, else
+// update it). Powers the inline per-employee shift editor.
+employeesRouter.put(
+  '/:id/shift',
+  requirePermission(PERMISSIONS.SHIFTS_UPDATE),
+  validateBody(shiftSchema),
+  (req, res) => {
+    const principal = principalOf(req);
+    const repo = repoFor(req);
+    const employee = repo.getEmployee(req.params.id);
+    let shift;
+    if (employee.shiftId) {
+      shift = repo.updateShift(employee.shiftId, req.body);
+    } else {
+      shift = repo.createShift({ name: `${employee.name} shift`, ...req.body });
+      repo.updateEmployee(employee.id, { shiftId: shift.id });
+    }
+    recordAudit(req, principal, {
+      action: 'employee.shift.update',
+      resource: 'shift',
+      resourceId: shift.id,
+      metadata: { employeeId: employee.id, ...req.body },
+    });
+    res.json({ employeeId: employee.id, shift });
+  },
+);
+
 employeesRouter.get('/:id', requirePermission(PERMISSIONS.EMPLOYEES_VIEW), (req, res) => {
   res.json(repoFor(req).getEmployee(req.params.id));
 });

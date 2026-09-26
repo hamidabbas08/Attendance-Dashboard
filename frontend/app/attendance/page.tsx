@@ -116,12 +116,16 @@ function Attendance() {
   }, [attendance.data]);
 
   const emps = employees.data ?? [];
+  // A single month is narrow enough to stretch across the whole card; the full
+  // year keeps fixed-width day columns and scrolls horizontally.
+  const stretch = month !== 'all';
   const stickyTh = (left: number, width: number): CSSProperties => ({
     position: 'sticky',
     left,
     minWidth: width,
     width,
   });
+  const dayCell: CSSProperties = stretch ? { minWidth: W.day } : { minWidth: W.day, width: W.day };
 
   return (
     <>
@@ -155,7 +159,10 @@ function Attendance() {
       {can('attendance:update') && <MarkForm employees={emps} onSaved={() => attendance.reload()} />}
 
       <div className={`${ui.card} overflow-x-auto p-0`}>
-        <table className="border-collapse text-xs" style={{ minWidth: SUMMARY_WIDTH + days.length * W.day }}>
+        <table
+          className="border-collapse text-xs"
+          style={stretch ? { width: '100%' } : { minWidth: SUMMARY_WIDTH + days.length * W.day }}
+        >
           <thead>
             <tr className="bg-panel">
               <th rowSpan={2} className="text-left px-3 border-b border-line bg-panel" style={stickyTh(LEFT.name, W.name)}>
@@ -185,7 +192,7 @@ function Attendance() {
                   <th
                     key={d}
                     className={`font-normal border-b border-line py-1 ${first ? 'border-l-2 border-l-line' : 'border-l border-line'} ${sun ? 'text-accent' : 'text-muted'}`}
-                    style={{ minWidth: W.day, width: W.day }}
+                    style={dayCell}
                   >
                     <div>{pad(dt.getUTCDate())}</div>
                     <div className="text-[10px]">{WD[dt.getUTCDay()]}</div>
@@ -228,7 +235,7 @@ function Attendance() {
                         key={c.d}
                         title={`${e.name} · ${c.d}${c.t ? ` · ${c.t}` : ''}`}
                         className={`text-center border-b border-line ${first ? 'border-l-2 border-l-line' : 'border-l border-line'} ${c.cls}`}
-                        style={{ minWidth: W.day, width: W.day, height: 26 }}
+                        style={{ ...dayCell, height: 26 }}
                       >
                         {c.t}
                       </td>

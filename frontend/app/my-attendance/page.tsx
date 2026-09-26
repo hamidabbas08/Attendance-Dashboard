@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { StatusPill, Guard } from '../../lib/components';
+import { StatusPill, Guard, TableSkeleton, TilesSkeleton } from '../../lib/components';
 import { P } from '../../lib/permissions';
 import { ui } from '../../lib/ui';
 import { useFetch } from '../../lib/useFetch';
@@ -33,7 +33,7 @@ function counts(records: Record[]) {
 }
 
 function MyAttendance() {
-  const { data } = useFetch<Record[]>('/api/attendance/me');
+  const { data, loading } = useFetch<Record[]>('/api/attendance/me');
   const all = data ?? [];
   const curYear = new Date().getUTCFullYear();
   const [year, setYear] = useState(curYear);
@@ -68,6 +68,13 @@ function MyAttendance() {
         </div>
       </div>
 
+      {loading && !data ? (
+        <>
+          <TilesSkeleton count={4} />
+          <TableSkeleton rows={6} cols={4} />
+        </>
+      ) : (
+      <>
       {/* Yearly totals */}
       <div className={ui.grid}>
         <Stat label={`Present in ${year}`} value={yearly.present} tone="text-emerald-300" />
@@ -130,6 +137,8 @@ function MyAttendance() {
           </tbody>
         </table>
       </div>
+      </>
+      )}
     </>
   );
 }

@@ -158,6 +158,13 @@ function Attendance() {
 
       {can('attendance:update') && <MarkForm employees={emps} onSaved={() => attendance.reload()} />}
 
+      {emps.length > 0 && (attendance.data?.length ?? 0) === 0 && !attendance.loading && (
+        <div className="surface p-4 mb-5 text-sm text-amber-300/90">
+          No attendance recorded for {month === 'all' ? year : `${MONTHS[month]} ${year}`}. Try another
+          month or <b>Full year (to date)</b> — imported history may be in earlier months.
+        </div>
+      )}
+
       <div className={`${ui.card} overflow-x-auto p-0`}>
         <table
           className="border-collapse text-xs"

@@ -62,7 +62,7 @@ export function Shell({ children }: { children: ReactNode }) {
           </button>
         </div>
       </aside>
-      <main className="px-8 py-7">{children}</main>
+      <main className="px-8 py-7 min-w-0">{children}</main>
     </div>
   );
 }

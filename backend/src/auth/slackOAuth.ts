@@ -1,5 +1,6 @@
 import { randomBytes } from 'crypto';
 import { config } from '../config/env';
+import { importAttendanceInto } from '../data/importSeed';
 import { store } from '../data/store';
 import { User } from '../data/types';
 import { AppError, UnauthorizedError } from '../errors';
@@ -244,6 +245,11 @@ function provisionCompanyWithOwner(identity: SlackIdentity): User {
     updatedAt: now,
   };
   store.users.set(userId, owner);
+
+  // Preload the imported spreadsheet attendance into the new company.
+  if (config.importAttendance && process.env.NODE_ENV !== 'test') {
+    importAttendanceInto(companyId);
+  }
   return owner;
 }
 

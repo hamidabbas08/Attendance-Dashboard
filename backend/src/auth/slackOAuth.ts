@@ -50,6 +50,19 @@ export function isSlackLoginConfigured(): boolean {
   return Boolean(config.slackClientId && config.slackClientSecret);
 }
 
+/**
+ * The bot token to use for a workspace: its stored token, else the env-provided
+ * SLACK_BOT_TOKEN when it belongs to the configured team (or no team is pinned).
+ * This lets a single-company deployment configure Slack entirely via env.
+ */
+export function botTokenForWorkspace(ws: { slackTeamId: string; accessToken: string }): string {
+  if (ws.accessToken) return ws.accessToken;
+  if (config.slackBotToken && (!config.slackTeamId || config.slackTeamId === ws.slackTeamId)) {
+    return config.slackBotToken;
+  }
+  return '';
+}
+
 export function buildAuthorizeUrl(state: string): string {
   const params = new URLSearchParams({
     response_type: 'code',
@@ -140,6 +153,11 @@ export function resolveSlackLogin(
     return { token: issueToken(owner.id), userId: owner.id };
   }
 
+  // Backfill the bot token from env if the workspace has none stored yet.
+  if (!workspace.accessToken && config.slackBotToken) {
+    workspace.accessToken = botTokenForWorkspace(workspace);
+  }
+
   const companyId = workspace.companyId;
   const users = [...store.users.values()].filter((u) => u.companyId === companyId);
   let user =
@@ -204,8 +222,9 @@ function provisionCompanyWithOwner(identity: SlackIdentity): User {
     id: wsId,
     companyId,
     slackTeamId: identity.teamId,
-    workspaceName: companyName,
-    accessToken: '', // bot token is added later via the Slack Integration page
+    workspaceName: config.slackWorkspaceName || companyName,
+    // Prefer the env-provided bot token so Slack works with no UI step.
+    accessToken: botTokenForWorkspace({ slackTeamId: identity.teamId, accessToken: '' }),
     status: 'active',
     createdAt: now,
     updatedAt: now,

@@ -35,6 +35,15 @@ export function importAttendanceInto(
   const employeeIdByName = new Map<string, string>();
 
   for (const name of imported.members) {
+    // Reuse an existing employee with the same name (e.g. one already synced
+    // from Slack) instead of creating a duplicate.
+    const existing = [...store.employees.values()].find(
+      (e) => e.companyId === companyId && e.name.toLowerCase() === name.toLowerCase(),
+    );
+    if (existing) {
+      employeeIdByName.set(name, existing.id);
+      continue;
+    }
     const id = store.id();
     store.employees.set(id, {
       id,

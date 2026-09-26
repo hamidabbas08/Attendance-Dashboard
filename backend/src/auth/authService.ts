@@ -14,7 +14,16 @@ export function resolvePrincipal(userId: string): Principal {
   if (!user || user.status !== 'active') {
     throw new UnauthorizedError('User not found or disabled');
   }
-  const employee = [...store.employees.values()].find((e) => e.userId === user.id);
+  // Link the user to their employee record: first by an explicit user link,
+  // then by matching Slack user id within the same company (covers people who
+  // signed in via Slack and were also imported/synced as employees).
+  const employee =
+    [...store.employees.values()].find((e) => e.userId === user.id) ??
+    (user.slackUserId
+      ? [...store.employees.values()].find(
+          (e) => e.companyId === user.companyId && e.slackUserId === user.slackUserId,
+        )
+      : undefined);
   return buildPrincipal({
     userId: user.id,
     companyId: user.companyId,

@@ -139,7 +139,16 @@ SLACK_CLIENT_ID=...
 SLACK_CLIENT_SECRET=...
 SLACK_SIGNING_SECRET=...
 SLACK_OAUTH_REDIRECT_URL=https://vibrant-wasp-attendance-backend.cloud.nexlayer.ai/api/auth/slack/callback
+
+# Env-driven Slack workspace (single-company deploy) — no Slack config UI needed.
+# The bot token auto-attaches to your company on login and powers "Sync from Slack".
+SLACK_BOT_TOKEN=xoxb-...
+SLACK_TEAM_ID=T0XXXXXXX
+SLACK_WORKSPACE_NAME=Your Workspace
 ```
+
+With `SLACK_BOT_TOKEN` set, there is no Slack Integration screen — the token is
+read from the environment and members are pulled via **Team → Sync from Slack**.
 
 In the Slack app: enable **OpenID Connect / "Sign in with Slack"**, add the
 scopes `openid email profile`, and register the exact `SLACK_OAUTH_REDIRECT_URL`

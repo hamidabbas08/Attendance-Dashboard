@@ -20,6 +20,11 @@ export const config = {
   slackOauthRedirectUrl:
     process.env.SLACK_OAUTH_REDIRECT_URL ?? 'http://localhost:4000/api/auth/slack/callback',
   frontendUrl: process.env.FRONTEND_URL ?? 'http://localhost:5173',
+  // Env-driven Slack workspace config (single-company deployments): the bot
+  // token + workspace details are read from env instead of the UI. Optional.
+  slackBotToken: process.env.SLACK_BOT_TOKEN ?? '',
+  slackTeamId: process.env.SLACK_TEAM_ID ?? '',
+  slackWorkspaceName: process.env.SLACK_WORKSPACE_NAME ?? '',
   // When true (default), the first Slack login from an unlinked workspace
   // creates a company + owner; later members auto-join as employees. Set
   // SLACK_AUTO_PROVISION=false to require workspaces to be linked manually.

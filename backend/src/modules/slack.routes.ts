@@ -6,6 +6,7 @@ import { requirePermission } from '../middleware/authorize';
 import { validateBody } from '../middleware/validate';
 import { rateLimit } from '../middleware/rateLimit';
 import { UnauthorizedError } from '../errors';
+import { botTokenForWorkspace } from '../auth/slackOAuth';
 import { AppError } from '../errors';
 import { PERMISSIONS } from '../rbac/permissions';
 import { processSlackEvent } from '../slack/eventHandler';
@@ -30,7 +31,8 @@ slackRouter.get('/status', requirePermission(PERMISSIONS.SLACK_VIEW), (req, res)
 const configureSchema = z.object({
   slackTeamId: z.string().min(1),
   workspaceName: z.string().min(1),
-  accessToken: z.string().min(1),
+  // Optional: when blank, keep the token that is already stored.
+  accessToken: z.string().optional().default(''),
 });
 
 slackRouter.post(
@@ -39,10 +41,13 @@ slackRouter.post(
   validateBody(configureSchema),
   (req, res) => {
     const principal = principalOf(req);
-    const ws = repoFor(req).upsertSlackWorkspace({
+    const repo = repoFor(req);
+    const existing = repo.getSlackWorkspace();
+    const accessToken = req.body.accessToken?.trim() || existing?.accessToken || '';
+    const ws = repo.upsertSlackWorkspace({
       slackTeamId: req.body.slackTeamId,
       workspaceName: req.body.workspaceName,
-      accessToken: req.body.accessToken,
+      accessToken,
       status: 'active',
     });
     recordAudit(req, principal, {
@@ -65,14 +70,15 @@ slackRouter.post(
       const principal = principalOf(req);
       const repo = repoFor(req);
       const ws = repo.getSlackWorkspace();
-      if (!ws || !ws.accessToken) {
+      const token = ws ? botTokenForWorkspace(ws) : '';
+      if (!ws || !token) {
         throw new AppError(
           400,
-          'Add your Slack bot token above before syncing members',
+          'No Slack bot token configured. Set SLACK_BOT_TOKEN in the server environment.',
           'slack_token_missing',
         );
       }
-      const members = await fetchSlackMembers(ws.accessToken);
+      const members = await fetchSlackMembers(token);
       let imported = 0;
       let updated = 0;
       for (const m of members) {

@@ -30,7 +30,8 @@ slackRouter.get('/status', requirePermission(PERMISSIONS.SLACK_VIEW), (req, res)
 const configureSchema = z.object({
   slackTeamId: z.string().min(1),
   workspaceName: z.string().min(1),
-  accessToken: z.string().min(1),
+  // Optional: when blank, keep the token that is already stored.
+  accessToken: z.string().optional().default(''),
 });
 
 slackRouter.post(
@@ -39,10 +40,13 @@ slackRouter.post(
   validateBody(configureSchema),
   (req, res) => {
     const principal = principalOf(req);
-    const ws = repoFor(req).upsertSlackWorkspace({
+    const repo = repoFor(req);
+    const existing = repo.getSlackWorkspace();
+    const accessToken = req.body.accessToken?.trim() || existing?.accessToken || '';
+    const ws = repo.upsertSlackWorkspace({
       slackTeamId: req.body.slackTeamId,
       workspaceName: req.body.workspaceName,
-      accessToken: req.body.accessToken,
+      accessToken,
       status: 'active',
     });
     recordAudit(req, principal, {

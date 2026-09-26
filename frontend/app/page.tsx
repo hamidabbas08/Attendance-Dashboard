@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useAuth } from '../lib/auth';
-import { MonthlyBars, StatTile, StatusBars } from '../lib/components';
+import { MonthlyBars, StatTile, StatusBars, TableSkeleton, TilesSkeleton } from '../lib/components';
 import { P } from '../lib/permissions';
 import { ui } from '../lib/ui';
 import { useFetch } from '../lib/useFetch';
@@ -32,7 +32,27 @@ export default function DashboardPage() {
 }
 
 function CompanyDashboard({ year, name, company }: { year: number; name: string; company: string }) {
-  const { data } = useFetch<Matrix>(`/api/reports/attendance/matrix?year=${year}`);
+  const { data, loading } = useFetch<Matrix>(`/api/reports/attendance/matrix?year=${year}`);
+
+  const header = (
+    <header className="mb-6">
+      <h2 className={ui.h2}>Welcome back{name ? `, ${name.split(' ')[0]}` : ''} 👋</h2>
+      <p className={ui.subtitle}>{company} · attendance overview for {year}</p>
+    </header>
+  );
+  if (loading && !data) {
+    return (
+      <>
+        {header}
+        <TilesSkeleton count={5} />
+        <div className="grid gap-5 lg:grid-cols-3 mb-5">
+          <div className="lg:col-span-2"><TableSkeleton rows={4} cols={2} /></div>
+          <TableSkeleton rows={4} cols={2} />
+        </div>
+        <TableSkeleton rows={6} cols={4} />
+      </>
+    );
+  }
 
   const t = data?.companyTotals;
   const monthly = (data?.companyByMonth ?? []).map((c, i) => ({ label: MONTHS[i], value: rate(c) }));
@@ -43,10 +63,7 @@ function CompanyDashboard({ year, name, company }: { year: number; name: string;
 
   return (
     <>
-      <header className="mb-6">
-        <h2 className={ui.h2}>Welcome back{name ? `, ${name.split(' ')[0]}` : ''} 👋</h2>
-        <p className={ui.subtitle}>{company} · attendance overview for {year}</p>
-      </header>
+      {header}
 
       <div className={`${ui.grid} mb-5`}>
         <StatTile label="Employees" value={data?.employees.length ?? 0} accent="#38bdf8" />

@@ -7,6 +7,13 @@ async function main(): Promise<void> {
   // In the memory adapter, seed demo tenants so the API is usable immediately.
   if (config.dataAdapter === 'memory') {
     const seed = await seedDatabase(store);
+    // Preview the imported spreadsheet attendance under the demo company too.
+    if (config.importAttendance) {
+      const { importAttendanceInto } = await import('./data/importSeed');
+      const res = importAttendanceInto(seed.companyA.companyId, { force: true });
+      // eslint-disable-next-line no-console
+      console.log(`Imported ${res.records} attendance records for ${res.employees} employees.`);
+    }
     // eslint-disable-next-line no-console
     console.log(
       `Seeded demo data. Login with e.g. owner@acme.test / ${seed.password} (company A) ` +

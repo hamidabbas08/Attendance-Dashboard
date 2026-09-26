@@ -8,6 +8,43 @@ export function StatusPill({ status }: { status: string }) {
   return <span className={pillClass(status)}>{status.replace('_', ' ')}</span>;
 }
 
+/** Shimmer placeholder. */
+export function Skeleton({ className = '' }: { className?: string }) {
+  return <div className={`animate-pulse rounded-md bg-panel2/70 ${className}`} />;
+}
+
+/** A grid of KPI-tile skeletons. */
+export function TilesSkeleton({ count = 5 }: { count?: number }) {
+  return (
+    <div className="grid gap-4 mb-5 [grid-template-columns:repeat(auto-fit,minmax(180px,1fr))]">
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="surface p-5">
+          <Skeleton className="h-8 w-16 mb-2" />
+          <Skeleton className="h-3 w-24" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** A table skeleton inside a card. */
+export function TableSkeleton({ rows = 6, cols = 4 }: { rows?: number; cols?: number }) {
+  return (
+    <div className="surface p-5">
+      <Skeleton className="h-4 w-40 mb-4" />
+      <div className="flex flex-col gap-3">
+        {Array.from({ length: rows }).map((_, r) => (
+          <div key={r} className="grid gap-3" style={{ gridTemplateColumns: `2fr ${'1fr '.repeat(cols - 1)}` }}>
+            {Array.from({ length: cols }).map((_, c) => (
+              <Skeleton key={c} className="h-4" />
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** Client-side page guard. UI convenience only — the backend still authorizes. */
 export function Guard({ perm, children }: { perm: string; children: ReactNode }) {
   const { can } = useAuth();

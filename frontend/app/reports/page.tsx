@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { getToken } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
-import { MonthlyBars, StatTile, StatusBars, Guard } from '../../lib/components';
+import { MonthlyBars, StatTile, StatusBars, Guard, TableSkeleton, TilesSkeleton } from '../../lib/components';
 import { P } from '../../lib/permissions';
 import { ui } from '../../lib/ui';
 import { useFetch } from '../../lib/useFetch';
@@ -28,7 +28,7 @@ function Reports() {
   const { can } = useAuth();
   const curYear = new Date().getUTCFullYear();
   const [year, setYear] = useState(curYear);
-  const { data } = useFetch<Matrix>(`/api/reports/attendance/matrix?year=${year}`);
+  const { data, loading } = useFetch<Matrix>(`/api/reports/attendance/matrix?year=${year}`);
 
   const t = data?.companyTotals;
   const monthly = (data?.companyByMonth ?? []).map((c, i) => ({ label: MONTHS[i], value: attended(c) + c.absent > 0 ? rate(c) : null }));
@@ -62,6 +62,14 @@ function Reports() {
         </div>
       </header>
 
+      {loading && !data ? (
+        <>
+          <TilesSkeleton count={5} />
+          <TableSkeleton rows={3} cols={2} />
+          <TableSkeleton rows={8} cols={6} />
+        </>
+      ) : (
+      <>
       <div className={`${ui.grid} mb-5`}>
         <StatTile label="Employees" value={data?.employees.length ?? 0} accent="#38bdf8" />
         <StatTile label="Present" value={t ? attended(t) : 0} accent="#34d399" />
@@ -113,6 +121,8 @@ function Reports() {
           </tbody>
         </table>
       </div>
+      </>
+      )}
     </>
   );
 }

@@ -17,13 +17,15 @@ export function resolvePrincipal(userId: string): Principal {
   // Link the user to their employee record: first by an explicit user link,
   // then by matching Slack user id within the same company (covers people who
   // signed in via Slack and were also imported/synced as employees).
+  const employees = [...store.employees.values()].filter((e) => e.companyId === user.companyId);
   const employee =
-    [...store.employees.values()].find((e) => e.userId === user.id) ??
-    (user.slackUserId
-      ? [...store.employees.values()].find(
-          (e) => e.companyId === user.companyId && e.slackUserId === user.slackUserId,
-        )
-      : undefined);
+    employees.find((e) => e.userId === user.id) ??
+    (user.slackUserId ? employees.find((e) => e.slackUserId === user.slackUserId) : undefined) ??
+    // Last resort: match an unlinked employee by name (covers imported rows
+    // that have no Slack id, so a signed-in owner/HR still sees their own data).
+    employees.find(
+      (e) => !e.userId && e.name.toLowerCase() === user.name.toLowerCase(),
+    );
   return buildPrincipal({
     userId: user.id,
     companyId: user.companyId,

@@ -140,6 +140,7 @@ function Attendance() {
         <h2 className={ui.h2}>Attendance</h2>
         <div className="flex items-end gap-3">
           {can('employees:create') && <PullButton onDone={() => attendance.reload()} />}
+          {can('employees:create') && <CleanupButton />}
           <div>
             <label className={ui.label}>Year</label>
             <select className={ui.input} value={year} onChange={(e) => setYear(Number(e.target.value))}>
@@ -305,6 +306,35 @@ function PullButton({ onDone }: { onDone: () => void }) {
     <div className="flex flex-col items-start gap-1">
       <button type="button" className={ui.btnGhost} onClick={pull} disabled={busy}>
         {busy ? 'Pulling…' : 'Pull check-ins'}
+      </button>
+      {msg && <span className="text-[11px] text-muted whitespace-nowrap">{msg}</span>}
+    </div>
+  );
+}
+
+// Deletes the bot's own messages from the #attendance channel (one-off cleanup).
+function CleanupButton() {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  async function clean() {
+    setBusy(true);
+    setMsg('');
+    try {
+      const r = await api<{ deleted: number; scanned: number }>('/api/slack/cleanup', { method: 'POST' });
+      setMsg(`Deleted ${r.deleted} bot message${r.deleted === 1 ? '' : 's'}.`);
+    } catch (err) {
+      setMsg((err as ApiError).message);
+    } finally {
+      setBusy(false);
+      setTimeout(() => setMsg(''), 6000);
+    }
+  }
+
+  return (
+    <div className="flex flex-col items-start gap-1">
+      <button type="button" className={ui.btnGhost} onClick={clean} disabled={busy}>
+        {busy ? 'Removing…' : 'Remove bot messages'}
       </button>
       {msg && <span className="text-[11px] text-muted whitespace-nowrap">{msg}</span>}
     </div>

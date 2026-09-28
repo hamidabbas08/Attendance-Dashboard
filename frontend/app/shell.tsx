@@ -32,7 +32,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
   return (
     <div className="grid grid-cols-[240px_1fr] min-h-screen">
-      <aside className="bg-panel border-r border-line flex flex-col">
+      <aside className="bg-panel border-r border-line flex flex-col sticky top-0 h-screen self-start">
         <div className="font-bold text-lg px-5 pt-5 pb-4">🕐 Attendance</div>
         <nav className="flex-1 px-3 overflow-y-auto">
           {ITEMS.filter((i) => !i.perm || can(i.perm)).map((i) => {

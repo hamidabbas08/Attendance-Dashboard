@@ -28,6 +28,71 @@ export async function fetchSlackUser(token: string, userId: string): Promise<Sla
   }
 }
 
+export interface SlackMessage {
+  user?: string;
+  text?: string;
+  ts: string;
+  subtype?: string;
+  bot_id?: string;
+}
+
+/** Find a channel by name (public + private the bot can see). */
+export async function findChannelByName(token: string, name: string): Promise<string | null> {
+  try {
+    let cursor = '';
+    do {
+      const url = `https://slack.com/api/conversations.list?limit=200&types=public_channel,private_channel${
+        cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''
+      }`;
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      const json = (await res.json()) as {
+        ok?: boolean;
+        channels?: { id: string; name: string }[];
+        response_metadata?: { next_cursor?: string };
+      };
+      if (!json.ok) return null;
+      const hit = (json.channels ?? []).find((c) => c.name === name);
+      if (hit) return hit.id;
+      cursor = json.response_metadata?.next_cursor ?? '';
+    } while (cursor);
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+/** Join a public channel (best-effort) so the bot can read its history. */
+export async function joinChannel(token: string, channel: string): Promise<void> {
+  try {
+    await fetch('https://slack.com/api/conversations.join', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ channel }),
+    });
+  } catch {
+    /* best-effort */
+  }
+}
+
+/** Read a channel's messages since `oldest` (epoch seconds string). */
+export async function fetchChannelHistory(
+  token: string,
+  channel: string,
+  oldest?: string,
+): Promise<SlackMessage[]> {
+  try {
+    const url = `https://slack.com/api/conversations.history?channel=${encodeURIComponent(channel)}&limit=200${
+      oldest ? `&oldest=${encodeURIComponent(oldest)}` : ''
+    }`;
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    const json = (await res.json()) as { ok?: boolean; messages?: SlackMessage[] };
+    if (!json.ok) return [];
+    return json.messages ?? [];
+  } catch {
+    return [];
+  }
+}
+
 /** Post a message to a channel with a bot token (chat.postMessage). */
 export async function postSlackMessage(token: string, channel: string, text: string): Promise<void> {
   try {

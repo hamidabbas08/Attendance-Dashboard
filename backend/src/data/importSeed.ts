@@ -33,6 +33,9 @@ export function importAttendanceInto(
 
   const now = store.now();
   const employeeIdByName = new Map<string, string>();
+  // People who have left the team: keep their history, but mark inactive so the
+  // Team list and future attendance stop showing them.
+  const FORMER_MEMBERS = new Set(['wania khan', 'syed jawad ali shah']);
 
   for (const name of imported.members) {
     // Reuse an existing employee with the same name (e.g. one already synced
@@ -53,7 +56,8 @@ export function importAttendanceInto(
       slackUserId: null,
       name,
       email: '',
-      status: 'active',
+      role: 'employee',
+      status: FORMER_MEMBERS.has(name.toLowerCase()) ? 'inactive' : 'active',
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: now,
     });

@@ -92,16 +92,3 @@ export async function fetchChannelHistory(
     return [];
   }
 }
-
-/** Post a message to a channel with a bot token (chat.postMessage). */
-export async function postSlackMessage(token: string, channel: string, text: string): Promise<void> {
-  try {
-    await fetch('https://slack.com/api/chat.postMessage', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ channel, text }),
-    });
-  } catch {
-    /* best-effort */
-  }
-}

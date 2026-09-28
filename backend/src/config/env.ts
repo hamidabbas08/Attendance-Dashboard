@@ -25,6 +25,9 @@ export const config = {
   slackBotToken: process.env.SLACK_BOT_TOKEN ?? '',
   slackTeamId: process.env.SLACK_TEAM_ID ?? '',
   slackWorkspaceName: process.env.SLACK_WORKSPACE_NAME ?? '',
+  // Poll the #attendance channel for check-ins (works without Event Subscriptions).
+  slackAttendanceChannel: process.env.SLACK_ATTENDANCE_CHANNEL ?? '',
+  slackPollSeconds: Number(process.env.SLACK_POLL_SECONDS ?? 60),
   // Load the bundled spreadsheet attendance dataset into a company on provision
   // (in-memory adapter preview). Default on; set IMPORT_ATTENDANCE=false to skip.
   importAttendance: (process.env.IMPORT_ATTENDANCE ?? 'true').toLowerCase() !== 'false',

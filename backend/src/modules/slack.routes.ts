@@ -84,6 +84,31 @@ slackRouter.post(
   },
 );
 
+// Pull recent #attendance messages now and record them (manual trigger).
+slackRouter.post(
+  '/poll',
+  requirePermission(PERMISSIONS.EMPLOYEES_CREATE),
+  async (req, res, next) => {
+    try {
+      const principal = principalOf(req);
+      const ws = repoFor(req).getSlackWorkspace();
+      if (!ws || !botTokenForWorkspace(ws)) {
+        throw new AppError(400, 'No Slack bot token configured on the server.', 'slack_token_missing');
+      }
+      const { pollWorkspace } = await import('../slack/poller');
+      const result = await pollWorkspace(ws);
+      recordAudit(req, principal, {
+        action: 'slack.poll',
+        resource: 'attendance',
+        metadata: result,
+      });
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 // Import the workspace's members from Slack as employees (upsert by slack id).
 slackRouter.post(
   '/sync-members',

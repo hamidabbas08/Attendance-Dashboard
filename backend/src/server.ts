@@ -26,6 +26,18 @@ async function main(): Promise<void> {
     // eslint-disable-next-line no-console
     console.log(`API listening on http://localhost:${config.port} [${config.env}]`);
   });
+
+  // Live attendance: poll the #attendance channel on an interval (works even
+  // without Slack Event Subscriptions, using the bot token).
+  if (config.slackBotToken && config.slackPollSeconds > 0) {
+    const { pollAllWorkspaces } = await import('./slack/poller');
+    const tick = () =>
+      pollAllWorkspaces().catch((e) => console.error('Slack poll error:', (e as Error).message));
+    setTimeout(tick, 5000); // shortly after boot
+    setInterval(tick, config.slackPollSeconds * 1000);
+    // eslint-disable-next-line no-console
+    console.log(`Slack attendance polling every ${config.slackPollSeconds}s.`);
+  }
 }
 
 main().catch((err) => {

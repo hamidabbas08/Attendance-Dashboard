@@ -280,6 +280,7 @@ function provisionEmployee(companyId: string, identity: SlackIdentity): User {
     slackUserId: identity.userId,
     name: user.name,
     email: user.email,
+    role: ROLES.EMPLOYEE,
     status: 'active',
     createdAt: now,
     updatedAt: now,

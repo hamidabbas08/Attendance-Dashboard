@@ -15,6 +15,7 @@ interface Employee {
   status: string;
   createdAt: string;
 }
+const isActive = (e: Employee) => e.status === 'active';
 interface Record {
   id: string;
   employeeId: string;
@@ -115,7 +116,13 @@ function Attendance() {
     return m;
   }, [attendance.data]);
 
-  const emps = employees.data ?? [];
+  const withRecords = useMemo(() => {
+    const s = new Set<string>();
+    for (const r of attendance.data ?? []) s.add(r.employeeId);
+    return s;
+  }, [attendance.data]);
+  // Show active people, plus former members only for months they have records in.
+  const emps = (employees.data ?? []).filter((e) => isActive(e) || withRecords.has(e.id));
   // A single month is narrow enough to stretch across the whole card; the full
   // year keeps fixed-width day columns and scrolls horizontally.
   const stretch = month !== 'all';

@@ -146,12 +146,15 @@ export class TenantRepository {
   }
 
   createEmployee(
-    data: Omit<Employee, 'id' | 'companyId' | 'createdAt' | 'updatedAt'>,
+    data: Omit<Employee, 'id' | 'companyId' | 'createdAt' | 'updatedAt' | 'role'> & {
+      role?: Employee['role'];
+    },
   ): Employee {
     const companyId = this.requireCompanyId();
     const now = this.store.now();
     const employee: Employee = {
       ...data,
+      role: data.role ?? 'employee',
       id: this.store.id(),
       companyId,
       createdAt: now,

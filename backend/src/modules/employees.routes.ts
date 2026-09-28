@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { recordAudit } from '../audit/auditService';
+import { ForbiddenError } from '../errors';
 import { principalOf, repoFor } from '../middleware/context';
 import { requirePermission } from '../middleware/authorize';
 import { validateBody } from '../middleware/validate';
@@ -86,10 +87,11 @@ employeesRouter.post(
 
 const updateSchema = z.object({
   name: z.string().min(1).optional(),
-  email: z.string().email().optional(),
+  email: z.string().email().or(z.literal('')).optional(),
   shiftId: z.string().nullable().optional(),
   slackUserId: z.string().nullable().optional(),
   status: z.enum(['active', 'inactive']).optional(),
+  role: z.enum(['company_owner', 'company_admin', 'hr_manager', 'manager', 'employee']).optional(),
 });
 
 employeesRouter.patch(
@@ -100,6 +102,10 @@ employeesRouter.patch(
     const principal = principalOf(req);
     const repo = repoFor(req);
     if (req.body.shiftId) repo.getShift(req.body.shiftId);
+    // Changing a team member's ROLE requires user-management permission.
+    if (req.body.role && !principal.permissions.has(PERMISSIONS.USERS_UPDATE)) {
+      throw new ForbiddenError('You do not have permission to change roles');
+    }
     const before = repo.getEmployee(req.params.id);
     const employee = repo.updateEmployee(req.params.id, req.body);
     recordAudit(req, principal, {

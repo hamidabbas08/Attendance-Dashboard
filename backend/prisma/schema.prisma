@@ -127,6 +127,7 @@ model Employee {
   slackUserId  String?        @map("slack_user_id")
   name         String
   email        String
+  role         String         @default("employee")
   status       EmployeeStatus @default(active)
   createdAt    DateTime       @default(now()) @map("created_at")
   updatedAt    DateTime       @updatedAt @map("updated_at")

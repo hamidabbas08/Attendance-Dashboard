@@ -43,6 +43,7 @@ export interface Employee {
   slackUserId: string | null;
   name: string;
   email: string;
+  role: Role; // team role; the effective login role is derived from this
   status: EmployeeStatus;
   createdAt: string;
   updatedAt: string;

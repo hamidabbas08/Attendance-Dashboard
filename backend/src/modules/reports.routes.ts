@@ -14,8 +14,12 @@ reportsRouter.get(
   (req, res) => {
     const year = Number(req.query.year) || new Date().getUTCFullYear();
     const repo = repoFor(req);
-    const employees = repo.listEmployees();
     const records = repo.listAttendance({ from: `${year}-01-01`, to: `${year}-12-31` });
+    const withRecords = new Set(records.map((r) => r.employeeId));
+    // Show active people, plus former members who still have records this year.
+    const employees = repo
+      .listEmployees()
+      .filter((e) => e.status === 'active' || withRecords.has(e.id));
     res.json(buildYearMatrix(employees, records, year));
   },
 );

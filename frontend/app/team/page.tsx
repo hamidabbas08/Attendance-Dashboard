@@ -8,20 +8,26 @@ import { P } from '../../lib/permissions';
 import { ui } from '../../lib/ui';
 import { useFetch } from '../../lib/useFetch';
 
-interface User { id: string; name: string; email: string; roles: string[]; status: string; slackUserId: string | null }
-interface Employee { id: string; name: string; email: string; slackUserId: string | null; status: string }
+interface Employee {
+  id: string;
+  name: string;
+  email: string;
+  slackUserId: string | null;
+  role: string;
+  status: string;
+}
 
 const ROLE_OPTIONS = [
   { value: 'company_owner', label: 'Owner' },
+  { value: 'company_admin', label: 'Admin' },
   { value: 'hr_manager', label: 'HR Manager' },
+  { value: 'manager', label: 'Manager' },
   { value: 'employee', label: 'Employee' },
 ];
-const roleLabel = (r?: string) => ROLE_OPTIONS.find((o) => o.value === r)?.label ?? '—';
 
 function Team() {
   const { me, can } = useAuth();
   const employees = useFetch<Employee[]>('/api/employees');
-  const users = useFetch<User[]>('/api/users');
   const [syncing, setSyncing] = useState(false);
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
@@ -30,20 +36,12 @@ function Team() {
   const canEdit = can('employees:update');
   const canDelete = can('employees:delete');
 
-  function findUser(e: Employee): User | undefined {
-    return (users.data ?? []).find(
-      (u) =>
-        (e.slackUserId && u.slackUserId === e.slackUserId) ||
-        u.name.toLowerCase() === e.name.toLowerCase(),
-    );
-  }
-
   async function syncFromSlack() {
     setSyncing(true); setError(''); setMsg('');
     try {
       const res = await api<{ imported: number; updated: number; total: number }>('/api/slack/sync-members', { method: 'POST' });
       setMsg(`Synced ${res.total} members — ${res.imported} added, ${res.updated} updated.`);
-      employees.reload(); users.reload();
+      employees.reload();
     } catch (err) {
       setError((err as ApiError).message);
     } finally {
@@ -52,6 +50,9 @@ function Team() {
   }
 
   const loading = employees.loading && !employees.data;
+  // Only current (active) team members appear here; former members keep their
+  // history but drop off the roster.
+  const roster = (employees.data ?? []).filter((e) => e.status === 'active');
 
   return (
     <>
@@ -68,8 +69,8 @@ function Team() {
       {error && <div className="surface p-3 text-danger text-sm mb-4">{error}</div>}
 
       <p className={`${ui.muted} text-[13px] mb-4`}>
-        People are pulled from Slack — there is no manual add. Assign roles, edit details, or
-        remove someone. Roles are enforced by the backend, not just the UI.
+        People are pulled from Slack (name &amp; email). Assign anyone a role — it applies when they
+        sign in. Roles are enforced by the backend, not just the UI.
       </p>
 
       {loading ? (
@@ -87,20 +88,19 @@ function Team() {
               </tr>
             </thead>
             <tbody>
-              {(employees.data ?? []).map((e) => (
+              {roster.map((e) => (
                 <TeamRow
                   key={e.id}
                   employee={e}
-                  user={findUser(e)}
-                  isSelf={findUser(e)?.id === me?.userId}
+                  isSelf={e.id === me?.employeeId}
                   canRole={canRole}
                   canEdit={canEdit}
                   canDelete={canDelete}
-                  onChange={() => { employees.reload(); users.reload(); }}
+                  onChange={() => employees.reload()}
                 />
               ))}
-              {employees.data?.length === 0 && (
-                <tr><td className={`${ui.td} text-muted`} colSpan={5}>No employees yet — click <b>Sync from Slack</b>.</td></tr>
+              {roster.length === 0 && (
+                <tr><td className={`${ui.td} text-muted`} colSpan={5}>No team members yet — click <b>Sync from Slack</b>.</td></tr>
               )}
             </tbody>
           </table>
@@ -111,9 +111,9 @@ function Team() {
 }
 
 function TeamRow({
-  employee, user, isSelf, canRole, canEdit, canDelete, onChange,
+  employee, isSelf, canRole, canEdit, canDelete, onChange,
 }: {
-  employee: Employee; user?: User; isSelf: boolean;
+  employee: Employee; isSelf: boolean;
   canRole: boolean; canEdit: boolean; canDelete: boolean; onChange: () => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -122,29 +122,22 @@ function TeamRow({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
-  async function changeRole(role: string) {
-    if (!user) return;
+  async function patch(body: Record<string, unknown>) {
     setErr('');
     try {
-      await api(`/api/users/${user.id}`, { method: 'PATCH', body: JSON.stringify({ roles: [role] }) });
+      await api(`/api/employees/${employee.id}`, { method: 'PATCH', body: JSON.stringify(body) });
       onChange();
-    } catch (e) { setErr((e as ApiError).message); }
+    } catch (e) { setErr((e as ApiError).message); throw e; }
   }
   async function saveEdit() {
-    setBusy(true); setErr('');
-    try {
-      await api(`/api/employees/${employee.id}`, { method: 'PATCH', body: JSON.stringify({ name, email }) });
-      setEditing(false); onChange();
-    } catch (e) { setErr((e as ApiError).message); } finally { setBusy(false); }
+    setBusy(true);
+    try { await patch({ name, email }); setEditing(false); } catch { /* shown */ } finally { setBusy(false); }
   }
   async function remove() {
-    if (!confirm(`Remove ${employee.name}? This deletes their employee record${user ? ' and login account' : ''}.`)) return;
+    if (!confirm(`Remove ${employee.name} from the team? Their past attendance is kept.`)) return;
     setBusy(true); setErr('');
-    try {
-      await api(`/api/employees/${employee.id}`, { method: 'DELETE' });
-      if (user && !isSelf) await api(`/api/users/${user.id}`, { method: 'DELETE' });
-      onChange();
-    } catch (e) { setErr((e as ApiError).message); setBusy(false); }
+    try { await api(`/api/employees/${employee.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'inactive' }) }); onChange(); }
+    catch (e) { setErr((e as ApiError).message); setBusy(false); }
   }
 
   return (
@@ -154,17 +147,15 @@ function TeamRow({
         {isSelf && <span className="text-muted"> (you)</span>}
       </td>
       <td className={ui.td}>
-        {editing ? <input className={`${ui.input} !w-56`} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email" /> : (user?.email || employee.email || '—')}
+        {editing ? <input className={`${ui.input} !w-56`} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email" /> : (employee.email || '—')}
       </td>
       <td className={ui.td}>
-        {!user ? (
-          <span className="pill pill-off_day">No login yet</span>
-        ) : canRole && !isSelf ? (
-          <select className={`${ui.input} !w-40`} value={user.roles[0] ?? 'employee'} onChange={(e) => changeRole(e.target.value)}>
+        {canRole && !isSelf ? (
+          <select className={`${ui.input} !w-40`} value={employee.role} onChange={(e) => patch({ role: e.target.value })}>
             {ROLE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         ) : (
-          <span className="pill pill-leave">{roleLabel(user.roles[0])}</span>
+          <span className="pill pill-leave">{ROLE_OPTIONS.find((o) => o.value === employee.role)?.label ?? employee.role}</span>
         )}
       </td>
       <td className={ui.td}>{employee.status}</td>
@@ -181,7 +172,7 @@ function TeamRow({
             ))}
             {canDelete && !isSelf && !editing && (
               <button className="border border-red-500/40 text-red-300 rounded-lg px-3 py-2.5 hover:bg-red-500/10 transition" onClick={remove} disabled={busy}>
-                Delete
+                Remove
               </button>
             )}
           </div>

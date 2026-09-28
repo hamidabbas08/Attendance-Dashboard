@@ -1,6 +1,7 @@
 import { store } from '../data/store';
 import { UnauthorizedError } from '../errors';
 import { buildPrincipal, Principal } from '../rbac/principal';
+import { highestRole } from '../rbac/roles';
 import { verifyPassword } from './passwords';
 import { issueToken } from './tokens';
 
@@ -26,10 +27,16 @@ export function resolvePrincipal(userId: string): Principal {
     employees.find(
       (e) => !e.userId && e.name.toLowerCase() === user.name.toLowerCase(),
     );
+
+  // Effective role = the strongest of the account role and the team (employee)
+  // role, so an owner can assign roles to anyone on the team without them
+  // needing to have logged in first, and the owner is never demoted.
+  const roles = [highestRole([...user.roles, employee?.role])];
+
   return buildPrincipal({
     userId: user.id,
     companyId: user.companyId,
-    roles: user.roles,
+    roles,
     employeeId: employee?.id ?? null,
   });
 }

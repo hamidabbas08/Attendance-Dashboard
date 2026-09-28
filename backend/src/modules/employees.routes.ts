@@ -91,7 +91,11 @@ const updateSchema = z.object({
   shiftId: z.string().nullable().optional(),
   slackUserId: z.string().nullable().optional(),
   status: z.enum(['active', 'inactive']).optional(),
-  role: z.enum(['company_owner', 'company_admin', 'hr_manager', 'manager', 'employee']).optional(),
+  // A person may hold several roles/titles at once. Unknown values are dropped
+  // and an empty list defaults to ['employee'] (see normalizeRoles).
+  roles: z.array(z.string()).optional(),
+  // Back-compat: a single role is still accepted.
+  role: z.string().optional(),
 });
 
 employeesRouter.patch(
@@ -102,8 +106,8 @@ employeesRouter.patch(
     const principal = principalOf(req);
     const repo = repoFor(req);
     if (req.body.shiftId) repo.getShift(req.body.shiftId);
-    // Changing a team member's ROLE requires user-management permission.
-    if (req.body.role && !principal.permissions.has(PERMISSIONS.USERS_UPDATE)) {
+    // Changing a team member's ROLE(s) requires user-management permission.
+    if ((req.body.role || req.body.roles) && !principal.permissions.has(PERMISSIONS.USERS_UPDATE)) {
       throw new ForbiddenError('You do not have permission to change roles');
     }
     const before = repo.getEmployee(req.params.id);

@@ -31,7 +31,7 @@ export function resolvePrincipal(userId: string): Principal {
   // Effective role = the strongest of the account role and the team (employee)
   // role, so an owner can assign roles to anyone on the team without them
   // needing to have logged in first, and the owner is never demoted.
-  const roles = [highestRole([...user.roles, employee?.role])];
+  const roles = [highestRole([...user.roles, ...(employee?.roles ?? [])])];
 
   return buildPrincipal({
     userId: user.id,

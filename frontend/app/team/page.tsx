@@ -14,16 +14,27 @@ interface Employee {
   email: string;
   slackUserId: string | null;
   role: string;
+  roles?: string[];
   status: string;
 }
 
 const ROLE_OPTIONS = [
   { value: 'company_owner', label: 'Owner' },
   { value: 'company_admin', label: 'Admin' },
+  { value: 'cto', label: 'CTO' },
   { value: 'hr_manager', label: 'HR Manager' },
+  { value: 'operations_manager', label: 'Operations Manager' },
   { value: 'manager', label: 'Manager' },
+  { value: 'team_lead', label: 'Team Lead' },
+  { value: 'product_manager', label: 'Product Manager' },
+  { value: 'developer', label: 'Developer' },
+  { value: 'business_developer', label: 'Business Developer' },
+  { value: 'designer', label: 'Designer' },
   { value: 'employee', label: 'Employee' },
 ];
+const roleLabel = (v: string) => ROLE_OPTIONS.find((o) => o.value === v)?.label ?? v;
+const rolesOf = (e: Employee): string[] =>
+  e.roles && e.roles.length ? e.roles : e.role ? [e.role] : ['employee'];
 
 function Team() {
   const { me, can } = useAuth();
@@ -151,11 +162,13 @@ function TeamRow({
       </td>
       <td className={ui.td}>
         {canRole && !isSelf ? (
-          <select className={`${ui.input} !w-40`} value={employee.role} onChange={(e) => patch({ role: e.target.value })}>
-            {ROLE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
+          <MultiRoleSelect selected={rolesOf(employee)} onChange={(roles) => patch({ roles })} />
         ) : (
-          <span className="pill pill-leave">{ROLE_OPTIONS.find((o) => o.value === employee.role)?.label ?? employee.role}</span>
+          <div className="flex flex-wrap gap-1">
+            {rolesOf(employee).map((r) => (
+              <span key={r} className="pill pill-leave">{roleLabel(r)}</span>
+            ))}
+          </div>
         )}
       </td>
       <td className={ui.td}>{employee.status}</td>
@@ -180,6 +193,45 @@ function TeamRow({
         </td>
       )}
     </tr>
+  );
+}
+
+// A compact multi-select: a dropdown of checkboxes so a person can hold several
+// roles/titles at once. Each toggle saves immediately.
+function MultiRoleSelect({
+  selected,
+  onChange,
+}: {
+  selected: string[];
+  onChange: (roles: string[]) => void;
+}) {
+  const toggle = (value: string) => {
+    const next = selected.includes(value)
+      ? selected.filter((r) => r !== value)
+      : [...selected, value];
+    onChange(next);
+  };
+  const summary = selected.length ? selected.map(roleLabel).join(', ') : 'Select roles…';
+  return (
+    <details className="relative">
+      <summary
+        className={`${ui.input} !w-52 cursor-pointer truncate list-none [&::-webkit-details-marker]:hidden`}
+        title={summary}
+      >
+        {summary}
+      </summary>
+      <div className="absolute z-20 mt-1 w-56 max-h-64 overflow-y-auto surface p-2 shadow-xl">
+        {ROLE_OPTIONS.map((o) => (
+          <label
+            key={o.value}
+            className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-panel2 cursor-pointer text-sm"
+          >
+            <input type="checkbox" checked={selected.includes(o.value)} onChange={() => toggle(o.value)} />
+            {o.label}
+          </label>
+        ))}
+      </div>
+    </details>
   );
 }
 

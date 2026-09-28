@@ -6,10 +6,19 @@ import { ui } from '../../lib/ui';
 import { useFetch } from '../../lib/useFetch';
 
 const ROLE_LABEL: Record<string, string> = {
-  company_owner: 'Owner',
-  hr_manager: 'HR Manager',
-  employee: 'Employee',
   platform_admin: 'Platform Admin',
+  company_owner: 'Owner',
+  company_admin: 'Admin',
+  cto: 'CTO',
+  hr_manager: 'HR Manager',
+  operations_manager: 'Operations Manager',
+  manager: 'Manager',
+  team_lead: 'Team Lead',
+  product_manager: 'Product Manager',
+  developer: 'Developer',
+  business_developer: 'Business Developer',
+  designer: 'Designer',
+  employee: 'Employee',
 };
 
 interface Rec { status: string; date: string }

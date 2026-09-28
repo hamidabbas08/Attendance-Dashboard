@@ -56,6 +56,7 @@ export function importAttendanceInto(
       slackUserId: null,
       name,
       email: '',
+      roles: ['employee'],
       role: 'employee',
       status: FORMER_MEMBERS.has(name.toLowerCase()) ? 'inactive' : 'active',
       createdAt: '2026-01-01T00:00:00.000Z',

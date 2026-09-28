@@ -43,7 +43,8 @@ export interface Employee {
   slackUserId: string | null;
   name: string;
   email: string;
-  role: Role; // team role; the effective login role is derived from this
+  roles: Role[]; // team roles/titles; a person may hold several at once
+  role: Role; // primary (strongest) role, derived from `roles` for convenience
   status: EmployeeStatus;
   createdAt: string;
   updatedAt: string;

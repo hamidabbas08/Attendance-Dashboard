@@ -1,6 +1,14 @@
 import { ForbiddenError, NotFoundError } from '../errors';
+import { ALL_ROLES, highestRole, Role } from '../rbac/roles';
 import { InMemoryStore } from './store';
 import { TenantContext } from './tenantContext';
+
+/** Clean a roles list: keep known roles, de-dupe, default to ['employee']. */
+export function normalizeRoles(roles: (Role | string)[]): Role[] {
+  const valid = roles.filter((r): r is Role => ALL_ROLES.includes(r as Role));
+  const unique = [...new Set(valid)];
+  return unique.length > 0 ? unique : ['employee'];
+}
 import {
   AttendanceEvent,
   AttendanceRecord,
@@ -146,15 +154,18 @@ export class TenantRepository {
   }
 
   createEmployee(
-    data: Omit<Employee, 'id' | 'companyId' | 'createdAt' | 'updatedAt' | 'role'> & {
+    data: Omit<Employee, 'id' | 'companyId' | 'createdAt' | 'updatedAt' | 'role' | 'roles'> & {
       role?: Employee['role'];
+      roles?: Employee['roles'];
     },
   ): Employee {
     const companyId = this.requireCompanyId();
     const now = this.store.now();
+    const roles = normalizeRoles(data.roles ?? (data.role ? [data.role] : []));
     const employee: Employee = {
       ...data,
-      role: data.role ?? 'employee',
+      roles,
+      role: highestRole(roles),
       id: this.store.id(),
       companyId,
       createdAt: now,
@@ -170,6 +181,15 @@ export class TenantRepository {
   ): Employee {
     const employee = this.getEmployee(id);
     Object.assign(employee, patch, { updatedAt: this.store.now() });
+    // Keep `roles` and the derived primary `role` consistent no matter which
+    // field the caller set.
+    if (patch.roles !== undefined || patch.role !== undefined) {
+      const roles = normalizeRoles(
+        patch.roles ?? (patch.role ? [patch.role] : employee.roles),
+      );
+      employee.roles = roles;
+      employee.role = highestRole(roles);
+    }
     return employee;
   }
 

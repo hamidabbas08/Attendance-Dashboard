@@ -4,7 +4,7 @@ import { TenantRepository } from '../data/repository';
 import { store } from '../data/store';
 import { Employee, SlackWorkspace } from '../data/types';
 import { NotFoundError } from '../errors';
-import { fetchSlackUser, postSlackMessage } from './api';
+import { fetchSlackUser } from './api';
 
 export interface SlackEvent {
   team_id: string;
@@ -102,12 +102,12 @@ export interface IncomingMessage {
 
 /**
  * Record one attendance message for a resolved workspace. Shared by the webhook
- * (push) and the poller (pull). Set opts.confirm to reply in the channel.
+ * (push) and the poller (pull). Recording is silent — nothing is posted back to
+ * the Slack channel.
  */
 export async function recordMessage(
   workspace: SlackWorkspace,
   msg: IncomingMessage,
-  opts: { confirm?: boolean } = {},
 ): Promise<ProcessResult> {
   const companyId = workspace.companyId;
   const intent = classifyIntent(msg.text ?? '');
@@ -140,10 +140,8 @@ export async function recordMessage(
   const status = computeStatus({ date, checkIn, checkOut, shift, rule });
   const record = repo.upsertAttendanceForDate({ employeeId: employee.id, date, checkIn, checkOut, status });
 
-  if (opts.confirm && botToken && msg.channel && process.env.NODE_ENV !== 'test') {
-    const verb = intent === 'check_in' ? `checked in at ${time}` : `checked out at ${time}`;
-    void postSlackMessage(botToken, msg.channel, `:white_check_mark: ${employee.name} ${verb} — marked *${record.status}*.`);
-  }
+  // Attendance is recorded silently — we never post anything back to the Slack
+  // channel (no confirmation replies), so #attendance stays clean.
   return { companyId, employeeId: employee.id, status: record.status, action: 'recorded' };
 }
 
@@ -167,5 +165,5 @@ export async function processSlackEvent(payload: SlackEvent): Promise<ProcessRes
   if (!isProcessableMessage(ev)) {
     return { companyId: workspace.companyId, employeeId: null, status: null, action: 'ignored_bot' };
   }
-  return recordMessage(workspace, { user: ev.user, text: ev.text, ts: ev.ts, channel: ev.channel }, { confirm: true });
+  return recordMessage(workspace, { user: ev.user, text: ev.text, ts: ev.ts, channel: ev.channel });
 }

@@ -47,11 +47,12 @@ export async function pollWorkspace(workspace: SlackWorkspace): Promise<{ record
   for (const m of ordered) {
     maxTs = Math.max(maxTs, Number(m.ts));
     if (!isProcessableMessage(m)) continue;
-    const res = await recordMessage(
-      workspace,
-      { user: m.user as string, text: m.text ?? '', ts: m.ts, channel },
-      { confirm: false }, // silent on poll to avoid spamming the channel
-    );
+    const res = await recordMessage(workspace, {
+      user: m.user as string,
+      text: m.text ?? '',
+      ts: m.ts,
+      channel,
+    });
     if (res.action === 'recorded') recorded += 1;
   }
   // Advance the cursor just past the newest message seen.

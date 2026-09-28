@@ -4,7 +4,7 @@ import { AttendanceRecord, Employee } from '../src/data/types';
 function emp(id: string, name: string): Employee {
   return {
     id, companyId: 'A', userId: null, shiftId: null, slackUserId: null,
-    name, email: `${id}@a.test`, status: 'active', createdAt: '', updatedAt: '',
+    name, email: `${id}@a.test`, role: 'employee', status: 'active', createdAt: '', updatedAt: '',
   };
 }
 function rec(employeeId: string, date: string, status: AttendanceRecord['status']): AttendanceRecord {

@@ -7,6 +7,7 @@ import { validateBody } from '../middleware/validate';
 import { rateLimit } from '../middleware/rateLimit';
 import { UnauthorizedError } from '../errors';
 import { botTokenForWorkspace } from '../auth/slackOAuth';
+import { store } from '../data/store';
 import { AppError } from '../errors';
 import { PERMISSIONS } from '../rbac/permissions';
 import { processSlackEvent } from '../slack/eventHandler';
@@ -25,6 +26,28 @@ slackRouter.get('/status', requirePermission(PERMISSIONS.SLACK_VIEW), (req, res)
     connected: Boolean(ws),
     workspace: ws ? serializeSlackWorkspace(ws) : null,
     channels: ws ? repoFor(req).listSlackChannels() : [],
+  });
+});
+
+// Diagnostics: shows whether Slack events are actually reaching the backend.
+slackRouter.get('/debug', requirePermission(PERMISSIONS.SLACK_VIEW), (req, res) => {
+  const principal = principalOf(req);
+  const ws = repoFor(req).getSlackWorkspace();
+  const events = [...store.attendanceEvents.values()]
+    .filter((e) => e.companyId === principal.companyId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  res.json({
+    workspaceLinked: Boolean(ws),
+    teamId: ws?.slackTeamId ?? null,
+    botTokenConfigured: Boolean(ws && botTokenForWorkspace(ws)),
+    totalEventsReceived: events.length,
+    recentEvents: events.slice(0, 25).map((e) => ({
+      slackUserId: e.slackUserId,
+      employeeId: e.employeeId,
+      type: e.type,
+      text: e.rawText,
+      occurredAt: e.occurredAt,
+    })),
   });
 });
 
@@ -128,8 +151,14 @@ export const slackWebhookRouter = Router();
 slackWebhookRouter.post(
   '/events',
   rateLimit({ windowMs: 60_000, max: 120, key: 'slack_events' }),
-  (req, res, next) => {
+  async (req, res, next) => {
     try {
+      // URL verification handshake (Slack sends this unsigned-friendly check first).
+      if (req.body?.type === 'url_verification') {
+        res.json({ challenge: req.body.challenge });
+        return;
+      }
+
       const rawBody: string = (req as unknown as { rawBody?: string }).rawBody ?? '';
       const valid = verifySlackSignature({
         signature: req.header('x-slack-signature'),
@@ -140,13 +169,13 @@ slackWebhookRouter.post(
         throw new UnauthorizedError('Invalid Slack signature');
       }
 
-      // URL verification handshake.
-      if (req.body?.type === 'url_verification') {
-        res.json({ challenge: req.body.challenge });
+      // Only the event_callback wrapper carries an event to process.
+      if (req.body?.type !== 'event_callback' || !req.body?.event) {
+        res.json({ ok: true, ignored: 'no_event' });
         return;
       }
 
-      const result = processSlackEvent(req.body);
+      const result = await processSlackEvent({ team_id: req.body.team_id, event: req.body.event });
       res.json({ ok: true, result });
     } catch (err) {
       next(err);

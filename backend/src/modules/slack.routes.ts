@@ -7,8 +7,6 @@ import { validateBody } from '../middleware/validate';
 import { rateLimit } from '../middleware/rateLimit';
 import { UnauthorizedError } from '../errors';
 import { botTokenForWorkspace } from '../auth/slackOAuth';
-import { config } from '../config/env';
-import { deleteSlackMessage, fetchBotUserId, fetchChannelHistory, findChannelByName } from '../slack/api';
 import { store } from '../data/store';
 import { AppError } from '../errors';
 import { PERMISSIONS } from '../rbac/permissions';
@@ -105,45 +103,6 @@ slackRouter.post(
         metadata: result,
       });
       res.json(result);
-    } catch (err) {
-      next(err);
-    }
-  },
-);
-
-// Remove the bot's own messages from the attendance channel (one-off cleanup).
-// This only deletes messages the bot posted; it never posts anything.
-slackRouter.post(
-  '/cleanup',
-  requirePermission(PERMISSIONS.EMPLOYEES_CREATE),
-  async (req, res, next) => {
-    try {
-      const principal = principalOf(req);
-      const ws = repoFor(req).getSlackWorkspace();
-      const token = ws ? botTokenForWorkspace(ws) : '';
-      if (!ws || !token) {
-        throw new AppError(400, 'No Slack bot token configured on the server.', 'slack_token_missing');
-      }
-      const channel = config.slackAttendanceChannel || (await findChannelByName(token, 'attendance'));
-      if (!channel) {
-        throw new AppError(400, 'Could not find the attendance channel.', 'slack_channel_missing');
-      }
-      const botUserId = await fetchBotUserId(token);
-      const messages = await fetchChannelHistory(token, channel);
-      let deleted = 0;
-      for (const m of messages) {
-        // Only the bot's own posts (its user id, or a bot_message subtype).
-        const mine = (botUserId && m.user === botUserId) || m.subtype === 'bot_message';
-        if (!mine) continue;
-        if (await deleteSlackMessage(token, channel, m.ts)) deleted += 1;
-      }
-      recordAudit(req, principal, {
-        action: 'slack.cleanup',
-        resource: 'slack_workspace',
-        resourceId: ws.id,
-        metadata: { deleted, scanned: messages.length },
-      });
-      res.json({ deleted, scanned: messages.length });
     } catch (err) {
       next(err);
     }

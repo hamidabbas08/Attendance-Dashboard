@@ -74,38 +74,6 @@ export async function joinChannel(token: string, channel: string): Promise<void>
   }
 }
 
-/** The bot's own Slack user id (auth.test) — used to spot its own posts. */
-export async function fetchBotUserId(token: string): Promise<string | null> {
-  try {
-    const res = await fetch('https://slack.com/api/auth.test', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const json = (await res.json()) as { ok?: boolean; user_id?: string };
-    return json.ok ? json.user_id ?? null : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Delete a message the bot itself posted (chat.delete). This removes an existing
- * message — it never posts anything to the channel. Returns true on success.
- */
-export async function deleteSlackMessage(token: string, channel: string, ts: string): Promise<boolean> {
-  try {
-    const res = await fetch('https://slack.com/api/chat.delete', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ channel, ts }),
-    });
-    const json = (await res.json()) as { ok?: boolean };
-    return Boolean(json.ok);
-  } catch {
-    return false;
-  }
-}
-
 /** Read a channel's messages since `oldest` (epoch seconds string). */
 export async function fetchChannelHistory(
   token: string,

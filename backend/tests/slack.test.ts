@@ -10,6 +10,7 @@ beforeEach(async () => {
 
 function eventBody(teamId: string, slackUser: string, text: string) {
   return {
+    type: 'event_callback',
     team_id: teamId,
     event: {
       type: 'message',

@@ -4,6 +4,7 @@ export interface SlackMember {
   slackUserId: string;
   name: string;
   email: string;
+  avatarUrl: string | null;
 }
 
 interface RawSlackMember {
@@ -11,7 +12,13 @@ interface RawSlackMember {
   name?: string;
   deleted?: boolean;
   is_bot?: boolean;
-  profile?: { real_name?: string; display_name?: string; email?: string };
+  profile?: {
+    real_name?: string;
+    display_name?: string;
+    email?: string;
+    image_192?: string;
+    image_72?: string;
+  };
 }
 
 /** Keep only real humans and normalise them. Pure + unit-tested. */
@@ -22,6 +29,7 @@ export function mapSlackMembers(raw: RawSlackMember[]): SlackMember[] {
       slackUserId: m.id as string,
       name: m.profile?.real_name || m.profile?.display_name || m.name || (m.id as string),
       email: m.profile?.email || '',
+      avatarUrl: m.profile?.image_192 || m.profile?.image_72 || null,
     }));
 }
 

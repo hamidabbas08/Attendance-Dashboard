@@ -43,6 +43,7 @@ export interface Employee {
   slackUserId: string | null;
   name: string;
   email: string;
+  avatarUrl: string | null; // Slack profile image, when available
   roles: Role[]; // team roles/titles; a person may hold several at once
   role: Role; // primary (strongest) role, derived from `roles` for convenience
   status: EmployeeStatus;

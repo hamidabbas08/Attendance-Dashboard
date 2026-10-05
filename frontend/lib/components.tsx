@@ -8,6 +8,35 @@ export function StatusPill({ status }: { status: string }) {
   return <span className={pillClass(status)}>{status.replace('_', ' ')}</span>;
 }
 
+function initials(name: string): string {
+  return name.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase() || '?';
+}
+
+/** Round avatar: shows the Slack image when present, else initials on a gradient. */
+export function Avatar({ src, name, size = 28 }: { src?: string | null; name: string; size?: number }) {
+  const style = { width: size, height: size };
+  if (src) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return (
+      <img
+        src={src}
+        alt={name}
+        style={style}
+        className="rounded-full object-cover shrink-0"
+        referrerPolicy="no-referrer"
+      />
+    );
+  }
+  return (
+    <span
+      style={{ ...style, background: 'linear-gradient(135deg,#38bdf8,#a78bfa)' }}
+      className="rounded-full flex items-center justify-center text-ink font-semibold shrink-0"
+    >
+      <span style={{ fontSize: size * 0.4 }}>{initials(name)}</span>
+    </span>
+  );
+}
+
 /** Shimmer placeholder. */
 export function Skeleton({ className = '' }: { className?: string }) {
   return <div className={`animate-pulse rounded-md bg-panel2/70 ${className}`} />;

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { api, ApiError } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
-import { Guard, TableSkeleton } from '../../lib/components';
+import { Avatar, Guard, TableSkeleton } from '../../lib/components';
 import { P } from '../../lib/permissions';
 import { ui } from '../../lib/ui';
 import { useFetch } from '../../lib/useFetch';
@@ -17,6 +17,7 @@ interface Employee {
   roles?: string[];
   status: string;
   terminatedAt?: string | null;
+  avatarUrl?: string | null;
 }
 
 type TeamFilter = 'active' | 'terminated' | 'all';
@@ -212,8 +213,17 @@ function TeamRow({
   return (
     <tr>
       <td className={`${ui.td} whitespace-nowrap`}>
-        {editing ? <input className={`${ui.input} !w-44`} value={name} onChange={(e) => setName(e.target.value)} /> : employee.name}
-        {isSelf && <span className="text-muted"> (you)</span>}
+        <div className="flex items-center gap-2.5">
+          <Avatar src={employee.avatarUrl} name={employee.name} size={30} />
+          {editing ? (
+            <input className={`${ui.input} !w-44`} value={name} onChange={(e) => setName(e.target.value)} />
+          ) : (
+            <span>
+              {employee.name}
+              {isSelf && <span className="text-muted"> (you)</span>}
+            </span>
+          )}
+        </div>
       </td>
       <td className={ui.td}>
         {editing ? <input className={`${ui.input} !w-56`} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email" /> : (employee.email || '—')}

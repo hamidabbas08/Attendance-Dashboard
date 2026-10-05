@@ -113,6 +113,7 @@ async function seedCompany(
     slackUserId: opts.empSlackUser,
     name: `${opts.name} Employee`,
     email: `employee@${opts.slug}.test`,
+    avatarUrl: null,
     roles: [ROLES.EMPLOYEE],
     role: ROLES.EMPLOYEE,
     status: 'active',

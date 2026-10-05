@@ -4,6 +4,7 @@ export interface SlackProfile {
   slackUserId: string;
   name: string | null;
   email: string | null;
+  avatarUrl: string | null;
 }
 
 /** Look up a Slack user's profile with a bot token (users.info). */
@@ -14,7 +15,16 @@ export async function fetchSlackUser(token: string, userId: string): Promise<Sla
     });
     const json = (await res.json()) as {
       ok?: boolean;
-      user?: { real_name?: string; profile?: { real_name?: string; display_name?: string; email?: string } };
+      user?: {
+        real_name?: string;
+        profile?: {
+          real_name?: string;
+          display_name?: string;
+          email?: string;
+          image_192?: string;
+          image_72?: string;
+        };
+      };
     };
     if (!json.ok || !json.user) return null;
     const p = json.user.profile ?? {};
@@ -22,6 +32,7 @@ export async function fetchSlackUser(token: string, userId: string): Promise<Sla
       slackUserId: userId,
       name: p.real_name || json.user.real_name || p.display_name || null,
       email: p.email || null,
+      avatarUrl: p.image_192 || p.image_72 || null,
     };
   } catch {
     return null;

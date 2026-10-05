@@ -143,6 +143,7 @@ slackRouter.post(
             name: m.name,
             email: m.email || existing.email,
             slackUserId: m.slackUserId,
+            avatarUrl: m.avatarUrl ?? existing.avatarUrl,
           });
           updated += 1;
         } else {
@@ -152,6 +153,7 @@ slackRouter.post(
             slackUserId: m.slackUserId,
             name: m.name,
             email: m.email,
+            avatarUrl: m.avatarUrl,
             status: 'active',
           });
           imported += 1;

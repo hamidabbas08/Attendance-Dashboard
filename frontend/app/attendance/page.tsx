@@ -3,7 +3,7 @@
 import { CSSProperties, FormEvent, useMemo, useState } from 'react';
 import { api, ApiError } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
-import { Guard } from '../../lib/components';
+import { Avatar, Guard } from '../../lib/components';
 import { P } from '../../lib/permissions';
 import { ui } from '../../lib/ui';
 import { useFetch } from '../../lib/useFetch';
@@ -13,6 +13,7 @@ interface Employee {
   name: string;
   email: string;
   status: string;
+  avatarUrl?: string | null;
   createdAt: string;
 }
 const isActive = (e: Employee) => e.status === 'active';
@@ -270,7 +271,10 @@ function Attendance() {
               return (
                 <tr key={e.id} className={rowBg}>
                   <td className={`px-3 py-1.5 border-b border-line whitespace-nowrap ${stickyBg}`} style={stickyTh(LEFT.name, W.name)}>
-                    {e.name}
+                    <div className="flex items-center gap-2">
+                      <Avatar src={e.avatarUrl} name={e.name} size={22} />
+                      <span className="truncate">{e.name}</span>
+                    </div>
                   </td>
                   <td className={`text-center py-1.5 border-b border-line font-semibold text-emerald-300 ${stickyBg}`} style={stickyTh(LEFT.present, W.present)}>
                     {present}

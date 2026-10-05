@@ -28,6 +28,7 @@ export interface SlackIdentity {
   email: string | null;
   name: string | null;
   teamName: string | null;
+  avatarUrl?: string | null;
 }
 
 // --- CSRF state store (short-lived, single-use) --------------------------------
@@ -116,6 +117,11 @@ export async function exchangeCodeForIdentity(code: string): Promise<SlackIdenti
     teamName:
       (info['https://slack.com/team_name'] as string) ??
       (info['https://slack.com/team_domain'] as string) ??
+      null,
+    avatarUrl:
+      (info['picture'] as string) ??
+      (info['https://slack.com/user_image_192'] as string) ??
+      (info['https://slack.com/user_image_72'] as string) ??
       null,
   };
 }
@@ -280,6 +286,7 @@ function provisionEmployee(companyId: string, identity: SlackIdentity): User {
     slackUserId: identity.userId,
     name: user.name,
     email: user.email,
+    avatarUrl: identity.avatarUrl ?? null,
     roles: [ROLES.EMPLOYEE],
     role: ROLES.EMPLOYEE,
     status: 'active',

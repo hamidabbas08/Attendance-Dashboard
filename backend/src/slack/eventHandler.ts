@@ -79,10 +79,12 @@ async function resolveEmployee(
   )[0];
 
   if (match) {
-    // Heal the mapping: point the original record at the current Slack id.
+    // Heal the mapping: point the original record at the current Slack id, and
+    // refresh the avatar from Slack when available.
     return repo.updateEmployee(match.id, {
       slackUserId,
       email: match.email || profile?.email || '',
+      avatarUrl: profile?.avatarUrl ?? match.avatarUrl,
     });
   }
   // Create only if we could identify a real workspace member.
@@ -93,6 +95,7 @@ async function resolveEmployee(
       slackUserId,
       name: profile.name || slackUserId,
       email: profile.email || '',
+      avatarUrl: profile.avatarUrl,
       status: 'active',
     });
   }

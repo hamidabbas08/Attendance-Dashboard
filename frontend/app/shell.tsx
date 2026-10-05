@@ -4,8 +4,10 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ReactNode } from 'react';
 import { useAuth } from '../lib/auth';
+import { Avatar } from '../lib/components';
 import { P } from '../lib/permissions';
 import { ui } from '../lib/ui';
+import { useFetch } from '../lib/useFetch';
 
 interface Item {
   href: string;
@@ -29,6 +31,8 @@ const ITEMS: Item[] = [
 export function Shell({ children }: { children: ReactNode }) {
   const { me, can, logout } = useAuth();
   const pathname = usePathname();
+  const meInfo = useFetch<{ employee: { avatarUrl: string | null } | null }>('/api/employees/me');
+  const avatarUrl = meInfo.data?.employee?.avatarUrl ?? null;
 
   return (
     <div className="grid grid-cols-[240px_1fr] min-h-screen">
@@ -51,10 +55,13 @@ export function Shell({ children }: { children: ReactNode }) {
           })}
         </nav>
         <div className="border-t border-line p-3">
-          <div className="px-3 pb-2">
-            <div className="text-sm truncate">{me?.name ?? me?.roles.join(', ')}</div>
-            <div className="text-muted text-xs">
-              {me?.isPlatformAdmin ? 'Platform Admin' : me?.roles.join(', ')}
+          <div className="px-3 pb-2 flex items-center gap-2.5">
+            <Avatar src={avatarUrl} name={me?.name ?? '?'} size={36} />
+            <div className="min-w-0">
+              <div className="text-sm truncate">{me?.name ?? me?.roles.join(', ')}</div>
+              <div className="text-muted text-xs truncate">
+                {me?.isPlatformAdmin ? 'Platform Admin' : me?.roles.join(', ')}
+              </div>
             </div>
           </div>
           <button className={`${ui.btnGhost} w-full`} onClick={logout}>

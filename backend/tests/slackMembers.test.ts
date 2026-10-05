@@ -11,14 +11,14 @@ describe('mapSlackMembers', () => {
     ];
     const out = mapSlackMembers(raw);
     expect(out.map((m) => m.slackUserId)).toEqual(['U1', 'U4']);
-    expect(out[0]).toEqual({ slackUserId: 'U1', name: 'Alice', email: 'alice@x.test' });
+    expect(out[0]).toEqual({ slackUserId: 'U1', name: 'Alice', email: 'alice@x.test', avatarUrl: null });
     // Falls back to display_name, then blank email.
-    expect(out[1]).toEqual({ slackUserId: 'U4', name: 'Charlie C', email: '' });
+    expect(out[1]).toEqual({ slackUserId: 'U4', name: 'Charlie C', email: '', avatarUrl: null });
   });
 
   it('handles missing profile/name gracefully', () => {
     expect(mapSlackMembers([{ id: 'U9' }])).toEqual([
-      { slackUserId: 'U9', name: 'U9', email: '' },
+      { slackUserId: 'U9', name: 'U9', email: '', avatarUrl: null },
     ]);
   });
 });

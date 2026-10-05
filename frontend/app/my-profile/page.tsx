@@ -32,8 +32,9 @@ export default function MyProfile() {
   const { me } = useAuth();
   const year = new Date().getUTCFullYear();
   const { data } = useFetch<Rec[]>('/api/attendance/me');
-  const meInfo = useFetch<{ shift: Shift | null }>('/api/employees/me');
+  const meInfo = useFetch<{ employee: { avatarUrl: string | null } | null; shift: Shift | null }>('/api/employees/me');
   const shift = meInfo.data?.shift ?? null;
+  const avatarUrl = meInfo.data?.employee?.avatarUrl ?? null;
   const shiftText = shift ? `${shift.startTime} – ${shift.endTime} (${shift.graceMins}m grace)` : 'Not set';
   const records = (data ?? []).filter((r) => r.date.startsWith(`${year}-`));
   const present = records.filter((r) => r.status === 'present' || r.status === 'late').length;
@@ -49,12 +50,22 @@ export default function MyProfile() {
 
       {/* Identity header */}
       <div className="surface p-6 mb-5 flex items-center gap-5">
-        <div
-          className="h-20 w-20 rounded-2xl flex items-center justify-center text-2xl font-bold text-ink shrink-0"
-          style={{ background: 'linear-gradient(135deg,#38bdf8,#a78bfa)' }}
-        >
-          {initials(me.name ?? '')}
-        </div>
+        {avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={avatarUrl}
+            alt={me.name ?? ''}
+            referrerPolicy="no-referrer"
+            className="h-20 w-20 rounded-2xl object-cover shrink-0"
+          />
+        ) : (
+          <div
+            className="h-20 w-20 rounded-2xl flex items-center justify-center text-2xl font-bold text-ink shrink-0"
+            style={{ background: 'linear-gradient(135deg,#38bdf8,#a78bfa)' }}
+          >
+            {initials(me.name ?? '')}
+          </div>
+        )}
         <div className="min-w-0">
           <div className="text-2xl font-bold truncate">{me.name ?? '—'}</div>
           <div className="text-muted truncate">{me.email ?? '—'}</div>

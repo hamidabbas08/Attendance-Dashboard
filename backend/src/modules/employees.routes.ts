@@ -90,7 +90,8 @@ const updateSchema = z.object({
   email: z.string().email().or(z.literal('')).optional(),
   shiftId: z.string().nullable().optional(),
   slackUserId: z.string().nullable().optional(),
-  status: z.enum(['active', 'inactive']).optional(),
+  status: z.enum(['active', 'inactive', 'terminated']).optional(),
+  terminatedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   // A person may hold several roles/titles at once. Unknown values are dropped
   // and an empty list defaults to ['employee'] (see normalizeRoles).
   roles: z.array(z.string()).optional(),
@@ -110,8 +111,16 @@ employeesRouter.patch(
     if ((req.body.role || req.body.roles) && !principal.permissions.has(PERMISSIONS.USERS_UPDATE)) {
       throw new ForbiddenError('You do not have permission to change roles');
     }
+    // Termination carries a date: default to today when marking terminated,
+    // and clear it when the person is reactivated.
+    const patch = { ...req.body };
+    if (patch.status === 'terminated' && !patch.terminatedAt) {
+      patch.terminatedAt = new Date().toISOString().slice(0, 10);
+    } else if (patch.status === 'active' || patch.status === 'inactive') {
+      patch.terminatedAt = null;
+    }
     const before = repo.getEmployee(req.params.id);
-    const employee = repo.updateEmployee(req.params.id, req.body);
+    const employee = repo.updateEmployee(req.params.id, patch);
     recordAudit(req, principal, {
       action: 'employee.update',
       resource: 'employee',

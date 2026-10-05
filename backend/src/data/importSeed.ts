@@ -59,6 +59,7 @@ export function importAttendanceInto(
       roles: ['employee'],
       role: 'employee',
       status: FORMER_MEMBERS.has(name.toLowerCase()) ? 'inactive' : 'active',
+      terminatedAt: null,
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: now,
     });

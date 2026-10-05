@@ -3,7 +3,7 @@ import { Role } from '../rbac/roles';
 /** Domain entity types — mirror the Prisma schema 1:1. */
 
 export type UserStatus = 'active' | 'disabled';
-export type EmployeeStatus = 'active' | 'inactive';
+export type EmployeeStatus = 'active' | 'inactive' | 'terminated';
 export type AttendanceStatus =
   | 'present'
   | 'late'
@@ -46,6 +46,7 @@ export interface Employee {
   roles: Role[]; // team roles/titles; a person may hold several at once
   role: Role; // primary (strongest) role, derived from `roles` for convenience
   status: EmployeeStatus;
+  terminatedAt: string | null; // YYYY-MM-DD; set when status === 'terminated'
   createdAt: string;
   updatedAt: string;
 }

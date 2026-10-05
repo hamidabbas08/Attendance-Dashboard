@@ -154,9 +154,10 @@ export class TenantRepository {
   }
 
   createEmployee(
-    data: Omit<Employee, 'id' | 'companyId' | 'createdAt' | 'updatedAt' | 'role' | 'roles'> & {
+    data: Omit<Employee, 'id' | 'companyId' | 'createdAt' | 'updatedAt' | 'role' | 'roles' | 'terminatedAt'> & {
       role?: Employee['role'];
       roles?: Employee['roles'];
+      terminatedAt?: Employee['terminatedAt'];
     },
   ): Employee {
     const companyId = this.requireCompanyId();
@@ -166,6 +167,7 @@ export class TenantRepository {
       ...data,
       roles,
       role: highestRole(roles),
+      terminatedAt: data.terminatedAt ?? null,
       id: this.store.id(),
       companyId,
       createdAt: now,

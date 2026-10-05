@@ -116,6 +116,7 @@ async function seedCompany(
     roles: [ROLES.EMPLOYEE],
     role: ROLES.EMPLOYEE,
     status: 'active',
+    terminatedAt: null,
     createdAt: now,
     updatedAt: now,
   });

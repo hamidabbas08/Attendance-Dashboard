@@ -16,7 +16,15 @@ interface Employee {
   role: string;
   roles?: string[];
   status: string;
+  terminatedAt?: string | null;
 }
+
+type TeamFilter = 'active' | 'terminated' | 'all';
+const FILTERS: { value: TeamFilter; label: string }[] = [
+  { value: 'active', label: 'Active' },
+  { value: 'terminated', label: 'Terminated' },
+  { value: 'all', label: 'All' },
+];
 
 const ROLE_OPTIONS = [
   { value: 'company_owner', label: 'Owner' },
@@ -42,6 +50,7 @@ function Team() {
   const [syncing, setSyncing] = useState(false);
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
+  const [filter, setFilter] = useState<TeamFilter>('active');
 
   const canRole = can('users:update');
   const canEdit = can('employees:update');
@@ -61,9 +70,17 @@ function Team() {
   }
 
   const loading = employees.loading && !employees.data;
-  // Only current (active) team members appear here; former members keep their
-  // history but drop off the roster.
-  const roster = (employees.data ?? []).filter((e) => e.status === 'active');
+  const all = employees.data ?? [];
+  const counts = {
+    active: all.filter((e) => e.status === 'active').length,
+    terminated: all.filter((e) => e.status === 'terminated').length,
+    all: all.length,
+  };
+  // Filter the roster by the selected tab. "Terminated" people keep their
+  // history (and their pre-termination attendance) but drop off the Active list.
+  const roster = all.filter((e) =>
+    filter === 'all' ? true : filter === 'terminated' ? e.status === 'terminated' : e.status === 'active',
+  );
 
   return (
     <>
@@ -83,6 +100,23 @@ function Team() {
         People are pulled from Slack (name &amp; email). Assign anyone a role — it applies when they
         sign in. Roles are enforced by the backend, not just the UI.
       </p>
+
+      <div className="flex gap-2 mb-4">
+        {FILTERS.map((f) => (
+          <button
+            key={f.value}
+            type="button"
+            onClick={() => setFilter(f.value)}
+            className={`px-3.5 py-1.5 rounded-lg text-sm border transition ${
+              filter === f.value
+                ? 'bg-accent text-ink border-transparent font-semibold'
+                : 'border-line text-muted hover:bg-panel2'
+            }`}
+          >
+            {f.label} <span className="opacity-70">({counts[f.value]})</span>
+          </button>
+        ))}
+      </div>
 
       {loading ? (
         <TableSkeleton rows={8} cols={5} />
@@ -111,7 +145,15 @@ function Team() {
                 />
               ))}
               {roster.length === 0 && (
-                <tr><td className={`${ui.td} text-muted`} colSpan={5}>No team members yet — click <b>Sync from Slack</b>.</td></tr>
+                <tr>
+                  <td className={`${ui.td} text-muted`} colSpan={5}>
+                    {filter === 'terminated'
+                      ? 'No terminated members.'
+                      : filter === 'active'
+                        ? 'No active team members — click Sync from Slack.'
+                        : 'No team members yet — click Sync from Slack.'}
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>
@@ -150,6 +192,22 @@ function TeamRow({
     try { await api(`/api/employees/${employee.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'inactive' }) }); onChange(); }
     catch (e) { setErr((e as ApiError).message); setBusy(false); }
   }
+  async function terminate() {
+    const today = new Date().toISOString().slice(0, 10);
+    if (!confirm(
+      `Terminate ${employee.name} as of ${today}?\n\n` +
+      `They'll drop off the Active list and won't appear in attendance after this date. ` +
+      `All their data up to today is kept.`,
+    )) return;
+    setBusy(true); setErr('');
+    try { await api(`/api/employees/${employee.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'terminated', terminatedAt: today }) }); onChange(); }
+    catch (e) { setErr((e as ApiError).message); setBusy(false); }
+  }
+  async function reactivate() {
+    setBusy(true); setErr('');
+    try { await api(`/api/employees/${employee.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'active' }) }); onChange(); }
+    catch (e) { setErr((e as ApiError).message); setBusy(false); }
+  }
 
   return (
     <tr>
@@ -171,7 +229,15 @@ function TeamRow({
           </div>
         )}
       </td>
-      <td className={ui.td}>{employee.status}</td>
+      <td className={ui.td}>
+        {employee.status === 'terminated' ? (
+          <span className="text-red-300">
+            terminated{employee.terminatedAt ? ` · ${employee.terminatedAt}` : ''}
+          </span>
+        ) : (
+          employee.status
+        )}
+      </td>
       {(canEdit || canDelete) && (
         <td className={ui.td}>
           <div className="flex items-center gap-2">
@@ -183,9 +249,27 @@ function TeamRow({
             ) : (
               <button className={ui.btnGhost} onClick={() => setEditing(true)}>Edit</button>
             ))}
-            {canDelete && !isSelf && !editing && (
-              <button className="border border-red-500/40 text-red-300 rounded-lg px-3 py-2.5 hover:bg-red-500/10 transition" onClick={remove} disabled={busy}>
-                Remove
+            {canDelete && !isSelf && !editing && employee.status === 'active' && (
+              <>
+                <button
+                  className="border border-amber-500/40 text-amber-300 rounded-lg px-3 py-2.5 hover:bg-amber-500/10 transition"
+                  onClick={terminate}
+                  disabled={busy}
+                >
+                  Terminate
+                </button>
+                <button className="border border-red-500/40 text-red-300 rounded-lg px-3 py-2.5 hover:bg-red-500/10 transition" onClick={remove} disabled={busy}>
+                  Remove
+                </button>
+              </>
+            )}
+            {canDelete && !isSelf && !editing && employee.status !== 'active' && (
+              <button
+                className="border border-emerald-500/40 text-emerald-300 rounded-lg px-3 py-2.5 hover:bg-emerald-500/10 transition"
+                onClick={reactivate}
+                disabled={busy}
+              >
+                Reactivate
               </button>
             )}
           </div>

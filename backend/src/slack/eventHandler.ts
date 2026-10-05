@@ -23,7 +23,7 @@ export interface ProcessResult {
   companyId: string;
   employeeId: string | null;
   status: string | null;
-  action: 'recorded' | 'ignored_no_employee' | 'ignored_no_intent' | 'ignored_bot';
+  action: 'recorded' | 'ignored_no_employee' | 'ignored_no_intent' | 'ignored_bot' | 'ignored_terminated';
 }
 
 /** "in"/"sign in" → check_in, "out"/"sign out" → check_out, else null. */
@@ -129,6 +129,11 @@ export async function recordMessage(
 
   const date = dateFromTs(msg.ts);
   const time = hhmmFromTs(msg.ts);
+  // Don't record attendance for a terminated employee on/after their termination
+  // date — they no longer appear in the roster or attendance from that point.
+  if (employee.status === 'terminated' && employee.terminatedAt && date >= employee.terminatedAt) {
+    return { companyId, employeeId: employee.id, status: null, action: 'ignored_terminated' };
+  }
   const rule = repo.upsertAttendanceRule({});
   const shift = employee.shiftId ? repo.getShift(employee.shiftId) : null;
   const existing = repo

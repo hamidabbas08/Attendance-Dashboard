@@ -283,6 +283,7 @@ function provisionEmployee(companyId: string, identity: SlackIdentity): User {
     roles: [ROLES.EMPLOYEE],
     role: ROLES.EMPLOYEE,
     status: 'active',
+    terminatedAt: null,
     createdAt: now,
     updatedAt: now,
   });

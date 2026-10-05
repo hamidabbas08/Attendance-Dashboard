@@ -24,7 +24,6 @@ const ITEMS: Item[] = [
   { href: '/team', label: 'Team', perm: P.USERS_VIEW },
   { href: '/shifts', label: 'Shifts', perm: P.SHIFTS_VIEW },
   { href: '/reports', label: 'Reports', perm: P.REPORTS_VIEW },
-  { href: '/assistant', label: 'AI Assistant', perm: P.CLAUDE_QUERY_OWN },
 ];
 
 export function Shell({ children }: { children: ReactNode }) {

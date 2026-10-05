@@ -20,6 +20,7 @@ const ITEMS: Item[] = [
   { href: '/my-attendance', label: 'My Attendance', perm: P.ATTENDANCE_VIEW_OWN },
   { href: '/my-profile', label: 'My Profile' },
   { href: '/attendance', label: 'Attendance', perm: P.ATTENDANCE_VIEW_ALL },
+  { href: '/overtime', label: 'Overtime', perm: P.ATTENDANCE_VIEW_ALL },
   { href: '/team', label: 'Team', perm: P.USERS_VIEW },
   { href: '/shifts', label: 'Shifts', perm: P.SHIFTS_VIEW },
   { href: '/reports', label: 'Reports', perm: P.REPORTS_VIEW },

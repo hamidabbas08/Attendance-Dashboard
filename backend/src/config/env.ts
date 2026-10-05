@@ -28,6 +28,9 @@ export const config = {
   // Poll the #attendance channel for check-ins (works without Event Subscriptions).
   slackAttendanceChannel: process.env.SLACK_ATTENDANCE_CHANNEL ?? '',
   slackPollSeconds: Number(process.env.SLACK_POLL_SECONDS ?? 60),
+  // Timezone offset (minutes from UTC) used to record Slack check-in/out times
+  // and dates in local time. Default +300 = PKT (UTC+5).
+  attendanceTzOffsetMinutes: Number(process.env.ATTENDANCE_TZ_OFFSET_MINUTES ?? 300),
   // Load the bundled spreadsheet attendance dataset into a company on provision
   // (in-memory adapter preview). Default on; set IMPORT_ATTENDANCE=false to skip.
   importAttendance: (process.env.IMPORT_ATTENDANCE ?? 'true').toLowerCase() !== 'false',

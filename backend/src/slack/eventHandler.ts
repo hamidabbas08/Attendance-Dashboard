@@ -1,5 +1,6 @@
 import { botTokenForWorkspace } from '../auth/slackOAuth';
 import { computeStatus } from '../attendance/attendanceEngine';
+import { config } from '../config/env';
 import { TenantRepository } from '../data/repository';
 import { store } from '../data/store';
 import { Employee, SlackWorkspace } from '../data/types';
@@ -36,12 +37,24 @@ export function classifyIntent(text: string): 'check_in' | 'check_out' | null {
   return null;
 }
 
+// Slack timestamps are UTC epoch seconds; shift into the company's local zone
+// (default PKT, UTC+5) so recorded times and dates match the #attendance channel.
+const TZ_OFFSET_MS = config.attendanceTzOffsetMinutes * 60 * 1000;
+function localDate(ts: string): Date {
+  return new Date(Number(ts) * 1000 + TZ_OFFSET_MS);
+}
 function hhmmFromTs(ts: string): string {
-  const d = new Date(Number(ts) * 1000);
+  const d = localDate(ts);
   return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
 }
 function dateFromTs(ts: string): string {
-  return new Date(Number(ts) * 1000).toISOString().slice(0, 10);
+  return localDate(ts).toISOString().slice(0, 10);
+}
+/** The calendar day before a YYYY-MM-DD date string (local). */
+function prevDate(date: string): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
 }
 
 /**
@@ -144,14 +157,27 @@ export async function recordMessage(
   }
   const rule = repo.upsertAttendanceRule({});
   const shift = employee.shiftId ? repo.getShift(employee.shiftId) : null;
+
+  // A sign-out after midnight belongs to the previous day's open shift. If this
+  // day has no open check-in but the day before does, attach the sign-out there.
+  let targetDate = date;
+  if (intent === 'check_out') {
+    const onDate = repo.listAttendance({ employeeId: employee.id, from: date, to: date }).find((r) => r.date === date);
+    if (!onDate || !onDate.checkIn) {
+      const yday = prevDate(date);
+      const prev = repo.listAttendance({ employeeId: employee.id, from: yday, to: yday }).find((r) => r.date === yday);
+      if (prev && prev.checkIn && !prev.checkOut) targetDate = yday;
+    }
+  }
+
   const existing = repo
-    .listAttendance({ employeeId: employee.id, from: date, to: date })
-    .find((r) => r.date === date);
+    .listAttendance({ employeeId: employee.id, from: targetDate, to: targetDate })
+    .find((r) => r.date === targetDate);
 
   const checkIn = intent === 'check_in' ? time : existing?.checkIn ?? null;
   const checkOut = intent === 'check_out' ? time : existing?.checkOut ?? null;
-  const status = computeStatus({ date, checkIn, checkOut, shift, rule });
-  const record = repo.upsertAttendanceForDate({ employeeId: employee.id, date, checkIn, checkOut, status });
+  const status = computeStatus({ date: targetDate, checkIn, checkOut, shift, rule });
+  const record = repo.upsertAttendanceForDate({ employeeId: employee.id, date: targetDate, checkIn, checkOut, status });
 
   // Attendance is recorded silently — we never post anything back to the Slack
   // channel (no confirmation replies), so #attendance stays clean.

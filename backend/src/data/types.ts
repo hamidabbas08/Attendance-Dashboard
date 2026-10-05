@@ -74,6 +74,16 @@ export interface AttendanceRule {
   updatedAt: string;
 }
 
+/** A company-wide holiday: a whole day marked off for everyone, with a name. */
+export interface Holiday {
+  id: string;
+  companyId: string;
+  date: string; // "YYYY-MM-DD"
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface AttendanceRecord {
   id: string;
   companyId: string;

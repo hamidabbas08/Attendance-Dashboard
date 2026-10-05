@@ -11,6 +11,7 @@ import { authRouter } from './modules/auth.routes';
 import { claudeRouter } from './modules/claude.routes';
 import { companiesRouter } from './modules/companies.routes';
 import { employeesRouter } from './modules/employees.routes';
+import { holidaysRouter } from './modules/holidays.routes';
 import { reportsRouter } from './modules/reports.routes';
 import { shiftsRouter } from './modules/shifts.routes';
 import { slackRouter, slackWebhookRouter } from './modules/slack.routes';
@@ -47,6 +48,7 @@ export function createApp(): Express {
   app.use('/api/shifts', authenticate, shiftsRouter);
   app.use('/api/attendance-rules', authenticate, attendanceRulesRouter);
   app.use('/api/attendance', authenticate, attendanceRouter);
+  app.use('/api/holidays', authenticate, holidaysRouter);
   app.use('/api/reports', authenticate, reportsRouter);
   app.use('/api/slack', authenticate, slackRouter);
   app.use('/api/claude', authenticate, claudeRouter);

@@ -16,6 +16,7 @@ import {
   AuditLog,
   Company,
   Employee,
+  Holiday,
   Shift,
   SlackChannel,
   SlackWorkspace,
@@ -270,6 +271,37 @@ export class TenantRepository {
     };
     this.store.attendanceRules.set(rule.id, rule);
     return rule;
+  }
+
+  // --------------------------------------------------------------- Holidays
+
+  listHolidays(): Holiday[] {
+    const companyId = this.requireCompanyId();
+    return [...this.store.holidays.values()]
+      .filter((h) => h.companyId === companyId)
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  /** Declare (or rename) a holiday for a date — one per date per company. */
+  upsertHoliday(date: string, name: string): Holiday {
+    const companyId = this.requireCompanyId();
+    const now = this.store.now();
+    let holiday = [...this.store.holidays.values()].find(
+      (h) => h.companyId === companyId && h.date === date,
+    );
+    if (holiday) {
+      holiday.name = name;
+      holiday.updatedAt = now;
+      return holiday;
+    }
+    holiday = { id: this.store.id(), companyId, date, name, createdAt: now, updatedAt: now };
+    this.store.holidays.set(holiday.id, holiday);
+    return holiday;
+  }
+
+  deleteHoliday(id: string): void {
+    const holiday = this.assertOwned(this.store.holidays.get(id));
+    this.store.holidays.delete(holiday.id);
   }
 
   // -------------------------------------------------------- Attendance records

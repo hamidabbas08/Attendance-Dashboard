@@ -65,8 +65,12 @@ function fmtDur(h: number): string {
   return mins === 0 ? `${hrs}h` : `${hrs}h ${mins}m`;
 }
 /** Hover text for a cell: name, date, status, and logged hours from Slack. */
-function cellTitle(name: string, date: string, t: string, rec: Record | undefined): string {
+function cellTitle(name: string, date: string, t: string, rec: Record | undefined, holidayName?: string): string {
   let line = `${name} · ${date}${t ? ` · ${t}` : ''}`;
+  if (holidayName) {
+    line += `\nHoliday: ${holidayName}`;
+    return line;
+  }
   if (rec?.checkIn && rec?.checkOut) {
     line += `\nSign in ${rec.checkIn} → Sign out ${rec.checkOut} · Logged ${fmtDur(loggedHours(rec.checkIn, rec.checkOut))}`;
   } else if (rec?.checkIn) {
@@ -90,8 +94,10 @@ function daysInRange(from: string, to: string): string[] {
   return out;
 }
 
-function cellFor(date: string, rec: Record | undefined): { t: string; cls: string } {
+function cellFor(date: string, rec: Record | undefined, holidayName?: string): { t: string; cls: string } {
   const wd = new Date(`${date}T00:00:00Z`).getUTCDay();
+  // A declared company holiday marks the whole day off for everyone.
+  if (holidayName) return { t: 'H', cls: 'bg-indigo-700/50 text-indigo-200' };
   if (rec) {
     switch (rec.status) {
       case 'present':
@@ -136,6 +142,11 @@ function Attendance() {
 
   const employees = useFetch<Employee[]>('/api/employees');
   const attendance = useFetch<Record[]>(`/api/attendance?from=${from}&to=${to}`);
+  const holidays = useFetch<{ id: string; date: string; name: string }[]>('/api/holidays');
+  const holidayByDate = useMemo(
+    () => new Map((holidays.data ?? []).map((h) => [h.date, h.name])),
+    [holidays.data],
+  );
 
   const days = useMemo(() => daysInRange(from, to), [from, to]);
   const monthGroups = useMemo(() => {
@@ -204,6 +215,10 @@ function Attendance() {
 
       {can('attendance:update') && <MarkForm employees={emps} onSaved={() => attendance.reload()} />}
 
+      {can('attendance_rules:create') && (
+        <HolidayManager holidays={holidays.data ?? []} onChange={() => holidays.reload()} />
+      )}
+
       {emps.length > 0 && (attendance.data?.length ?? 0) === 0 && !attendance.loading && (
         <div className="surface p-4 mb-5 text-sm text-amber-300/90">
           No attendance recorded for {month === 'all' ? year : `${MONTHS[month]} ${year}`}. Try another
@@ -260,10 +275,11 @@ function Attendance() {
               let absent = 0;
               const cells = days.map((d) => {
                 const rec = recIndex.get(`${e.id}|${d}`);
-                if (rec?.status === 'present' || rec?.status === 'late') present += 1;
-                if (rec?.status === 'absent') absent += 1;
-                const cell = cellFor(d, rec);
-                return { d, ...cell, title: cellTitle(e.name, d, cell.t, rec) };
+                const hol = holidayByDate.get(d);
+                if (!hol && (rec?.status === 'present' || rec?.status === 'late')) present += 1;
+                if (!hol && rec?.status === 'absent') absent += 1;
+                const cell = cellFor(d, rec, hol);
+                return { d, ...cell, title: cellTitle(e.name, d, cell.t, rec, hol) };
               });
               const pct = present + absent > 0 ? Math.round((present / (present + absent)) * 100) : 0;
               const rowBg = idx % 2 ? 'bg-panel' : 'bg-panel2/40';
@@ -315,7 +331,7 @@ function Attendance() {
       <p className="text-muted text-xs mt-2">
         Legend: <b className="text-emerald-300">P</b> present (late counts as present) ·{' '}
         <b className="text-red-400">A</b> absent · <b>Off</b> off day / Sunday &amp; Saturday (from Oct 3, 2026) ·{' '}
-        <b>L</b> leave · <b>½</b> half day · blank = not recorded.
+        <b className="text-indigo-300">H</b> holiday · <b>L</b> leave · <b>½</b> half day · blank = not recorded.
       </p>
     </>
   );
@@ -348,6 +364,91 @@ function PullButton({ onDone }: { onDone: () => void }) {
         {busy ? 'Pulling…' : 'Pull check-ins'}
       </button>
       {msg && <span className="text-[11px] text-muted whitespace-nowrap">{msg}</span>}
+    </div>
+  );
+}
+
+interface Holiday {
+  id: string;
+  date: string;
+  name: string;
+}
+
+// Declare company holidays: a whole day off for everyone, with a name.
+function HolidayManager({ holidays, onChange }: { holidays: Holiday[]; onChange: () => void }) {
+  const [date, setDate] = useState(today());
+  const [name, setName] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  async function add(e: FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setBusy(true);
+    setError('');
+    try {
+      await api('/api/holidays', { method: 'POST', body: JSON.stringify({ date, name: name.trim() }) });
+      setName('');
+      onChange();
+    } catch (err) {
+      setError((err as ApiError).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function remove(id: string) {
+    try {
+      await api(`/api/holidays/${id}`, { method: 'DELETE' });
+      onChange();
+    } catch (err) {
+      setError((err as ApiError).message);
+    }
+  }
+
+  const sorted = [...holidays].sort((a, b) => a.date.localeCompare(b.date));
+
+  return (
+    <div className={ui.card}>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-semibold">Company holidays</h3>
+        <span className="text-muted text-xs">Marks the whole day off for everyone</span>
+      </div>
+      <form className="flex flex-wrap items-end gap-3" onSubmit={add}>
+        <div>
+          <label className={ui.label}>Date</label>
+          <input className={ui.input} type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+        </div>
+        <div className="min-w-[220px] flex-1">
+          <label className={ui.label}>Holiday name</label>
+          <input
+            className={ui.input}
+            placeholder="e.g. Eid ul-Fitr, Independence Day"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
+        </div>
+        <button className={ui.btn} disabled={busy}>{busy ? 'Saving…' : 'Mark holiday'}</button>
+        {error && <div className={ui.error}>{error}</div>}
+      </form>
+
+      {sorted.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-4">
+          {sorted.map((h) => (
+            <span key={h.id} className="inline-flex items-center gap-2 bg-indigo-700/30 text-indigo-200 border border-indigo-500/30 rounded-lg px-3 py-1.5 text-sm">
+              <b>{h.date}</b> · {h.name}
+              <button
+                type="button"
+                className="text-indigo-300/70 hover:text-red-300"
+                title="Remove holiday"
+                onClick={() => remove(h.id)}
+              >
+                ✕
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

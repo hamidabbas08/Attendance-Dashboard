@@ -6,6 +6,7 @@ import {
   AuditLog,
   Company,
   Employee,
+  Holiday,
   Shift,
   SlackChannel,
   SlackWorkspace,
@@ -26,6 +27,7 @@ export class InMemoryStore {
   employees = new Map<string, Employee>();
   shifts = new Map<string, Shift>();
   attendanceRules = new Map<string, AttendanceRule>();
+  holidays = new Map<string, Holiday>();
   attendanceRecords = new Map<string, AttendanceRecord>();
   slackWorkspaces = new Map<string, SlackWorkspace>();
   slackChannels = new Map<string, SlackChannel>();
@@ -46,6 +48,7 @@ export class InMemoryStore {
     this.employees.clear();
     this.shifts.clear();
     this.attendanceRules.clear();
+    this.holidays.clear();
     this.attendanceRecords.clear();
     this.slackWorkspaces.clear();
     this.slackChannels.clear();

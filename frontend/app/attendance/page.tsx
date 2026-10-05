@@ -304,8 +304,7 @@ function Attendance() {
             {emps.length === 0 && (
               <tr>
                 <td className="px-3 py-5 text-muted" colSpan={4 + days.length}>
-                  No employees yet. Go to <b>Team</b> and click <b>Sync from Slack</b> to import your
-                  workspace members.
+                  No employees yet — workspace members sync from Slack automatically after login.
                 </td>
               </tr>
             )}

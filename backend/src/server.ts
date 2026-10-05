@@ -37,6 +37,16 @@ async function main(): Promise<void> {
     setInterval(tick, config.slackPollSeconds * 1000);
     // eslint-disable-next-line no-console
     console.log(`Slack attendance polling every ${config.slackPollSeconds}s.`);
+
+    // Keep the roster current automatically — sync Slack members shortly after
+    // boot and every 30 minutes (also runs after each login). No manual button.
+    const { syncAllWorkspaces } = await import('./slack/syncMembers');
+    const syncTick = () =>
+      syncAllWorkspaces().catch((e) => console.error('Slack member sync error:', (e as Error).message));
+    setTimeout(syncTick, 8000);
+    setInterval(syncTick, 30 * 60 * 1000);
+    // eslint-disable-next-line no-console
+    console.log('Slack member sync every 30m.');
   }
 }
 

@@ -11,7 +11,7 @@ import { store } from '../data/store';
 import { AppError } from '../errors';
 import { PERMISSIONS } from '../rbac/permissions';
 import { processSlackEvent } from '../slack/eventHandler';
-import { fetchSlackMembers } from '../slack/members';
+import { syncWorkspaceMembers } from '../slack/syncMembers';
 import { verifySlackSignature } from '../slack/verify';
 import { serializeSlackWorkspace } from './serializers';
 
@@ -126,45 +126,13 @@ slackRouter.post(
           'slack_token_missing',
         );
       }
-      const members = await fetchSlackMembers(token);
-      let imported = 0;
-      let updated = 0;
-      const roster = repo.listEmployees();
-      for (const m of members) {
-        // Match by Slack id, else by exact email, else by name but ONLY for an
-        // unclaimed imported row (no Slack id). This keeps two different people
-        // who share a name as separate members instead of merging them.
-        const existing =
-          roster.find((e) => e.slackUserId === m.slackUserId) ??
-          (m.email ? roster.find((e) => e.email && e.email.toLowerCase() === m.email.toLowerCase()) : undefined) ??
-          roster.find((e) => !e.slackUserId && e.name.toLowerCase() === m.name.toLowerCase());
-        if (existing) {
-          repo.updateEmployee(existing.id, {
-            name: m.name,
-            email: m.email || existing.email,
-            slackUserId: m.slackUserId,
-            avatarUrl: m.avatarUrl ?? existing.avatarUrl,
-          });
-          updated += 1;
-        } else {
-          repo.createEmployee({
-            userId: null,
-            shiftId: null,
-            slackUserId: m.slackUserId,
-            name: m.name,
-            email: m.email,
-            avatarUrl: m.avatarUrl,
-            status: 'active',
-          });
-          imported += 1;
-        }
-      }
+      const result = await syncWorkspaceMembers(ws);
       recordAudit(req, principal, {
         action: 'slack.sync_members',
         resource: 'employee',
-        metadata: { imported, updated, total: members.length },
+        metadata: { ...result },
       });
-      res.json({ imported, updated, total: members.length });
+      res.json(result);
     } catch (err) {
       next(err);
     }

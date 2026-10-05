@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { api, ApiError } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
-import { Guard } from '../../lib/components';
+import { Avatar, Guard } from '../../lib/components';
 import { P } from '../../lib/permissions';
 import { ui } from '../../lib/ui';
 import { useFetch } from '../../lib/useFetch';
@@ -12,6 +12,7 @@ interface Employee {
   id: string;
   name: string;
   shiftId: string | null;
+  avatarUrl?: string | null;
 }
 interface Shift {
   id: string;
@@ -58,7 +59,7 @@ function Shifts() {
             {employees.data?.length === 0 && (
               <tr>
                 <td className={`${ui.td} text-muted`} colSpan={editable ? 5 : 4}>
-                  No employees yet. Go to <b>Team</b> and click <b>Sync from Slack</b>.
+                  No employees yet — they sync from Slack automatically after login.
                 </td>
               </tr>
             )}
@@ -103,7 +104,12 @@ function ShiftRow({
   const inputCls = `${ui.input} !w-28`;
   return (
     <tr>
-      <td className={ui.td}>{employee.name}</td>
+      <td className={`${ui.td} whitespace-nowrap`}>
+        <div className="flex items-center gap-2.5">
+          <Avatar src={employee.avatarUrl} name={employee.name} size={30} />
+          <span>{employee.name}</span>
+        </div>
+      </td>
       <td className={ui.td}>
         <input type="time" className={inputCls} value={startTime} disabled={!editable} onChange={(e) => setStart(e.target.value)} />
       </td>

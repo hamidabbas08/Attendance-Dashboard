@@ -48,27 +48,11 @@ const rolesOf = (e: Employee): string[] =>
 function Team() {
   const { me, can } = useAuth();
   const employees = useFetch<Employee[]>('/api/employees');
-  const [syncing, setSyncing] = useState(false);
-  const [msg, setMsg] = useState('');
-  const [error, setError] = useState('');
   const [filter, setFilter] = useState<TeamFilter>('active');
 
   const canRole = can('users:update');
   const canEdit = can('employees:update');
   const canDelete = can('employees:delete');
-
-  async function syncFromSlack() {
-    setSyncing(true); setError(''); setMsg('');
-    try {
-      const res = await api<{ imported: number; updated: number; total: number }>('/api/slack/sync-members', { method: 'POST' });
-      setMsg(`Synced ${res.total} members — ${res.imported} added, ${res.updated} updated.`);
-      employees.reload();
-    } catch (err) {
-      setError((err as ApiError).message);
-    } finally {
-      setSyncing(false);
-    }
-  }
 
   const loading = employees.loading && !employees.data;
   const all = employees.data ?? [];
@@ -90,16 +74,11 @@ function Team() {
           <h2 className={ui.h2}>Team</h2>
           <p className={ui.subtitle}>Manage people, roles and access</p>
         </div>
-        <button className={ui.btn} onClick={syncFromSlack} disabled={syncing}>
-          {syncing ? 'Syncing…' : 'Sync from Slack'}
-        </button>
       </div>
-      {msg && <div className="surface p-3 text-emerald-300 text-sm mb-4">{msg}</div>}
-      {error && <div className="surface p-3 text-danger text-sm mb-4">{error}</div>}
 
       <p className={`${ui.muted} text-[13px] mb-4`}>
-        People are pulled from Slack (name &amp; email). Assign anyone a role — it applies when they
-        sign in. Roles are enforced by the backend, not just the UI.
+        People sync automatically from Slack after each login (name, email &amp; avatar). Assign anyone a
+        role — it applies when they sign in. Roles are enforced by the backend, not just the UI.
       </p>
 
       <div className="flex gap-2 mb-4">
@@ -151,8 +130,8 @@ function Team() {
                     {filter === 'terminated'
                       ? 'No terminated members.'
                       : filter === 'active'
-                        ? 'No active team members — click Sync from Slack.'
-                        : 'No team members yet — click Sync from Slack.'}
+                        ? 'No active team members yet — they sync from Slack after login.'
+                        : 'No team members yet — they sync from Slack after login.'}
                   </td>
                 </tr>
               )}

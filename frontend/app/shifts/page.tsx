@@ -106,7 +106,7 @@ function ShiftRow({
     }
   }
 
-  const inputCls = `${ui.input} !w-28`;
+  const inputCls = `${ui.input} !w-40`;
   return (
     <tr>
       <td className={`${ui.td} whitespace-nowrap`}>
@@ -116,10 +116,10 @@ function ShiftRow({
         </div>
       </td>
       <td className={ui.td}>
-        <input type="time" className={inputCls} value={startTime} disabled={!editable} onChange={(e) => setStart(e.target.value)} />
+        <input lang="en-US" type="time" className={inputCls} value={startTime} disabled={!editable} onChange={(e) => setStart(e.target.value)} />
       </td>
       <td className={ui.td}>
-        <input type="time" className={inputCls} value={endTime} disabled={!editable} onChange={(e) => setEnd(e.target.value)} />
+        <input lang="en-US" type="time" className={inputCls} value={endTime} disabled={!editable} onChange={(e) => setEnd(e.target.value)} />
       </td>
       <td className={ui.td}>
         <input type="number" min={0} max={240} className={`${ui.input} !w-20`} value={graceMins} disabled={!editable} onChange={(e) => setGrace(Number(e.target.value))} />

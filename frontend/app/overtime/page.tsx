@@ -1,6 +1,8 @@
 'use client';
 
 import { Fragment, useMemo, useState } from 'react';
+import { api, ApiError } from '../../lib/api';
+import { useAuth } from '../../lib/auth';
 import { Guard, StatTile, TableSkeleton, TilesSkeleton } from '../../lib/components';
 import { P } from '../../lib/permissions';
 import { ui } from '../../lib/ui';
@@ -47,9 +49,9 @@ function elapsedHours(checkIn: string, checkOut: string): number {
   if (b <= a) b += 24;
   return b - a;
 }
-function overtimeOf(rec: Record): number {
-  if (!rec.checkIn || !rec.checkOut) return 0;
-  return Math.max(0, elapsedHours(rec.checkIn, rec.checkOut) - shiftHoursFor(rec.date));
+function overtimeOf(date: string, checkIn: string | null, checkOut: string | null): number {
+  if (!checkIn || !checkOut) return 0;
+  return Math.max(0, elapsedHours(checkIn, checkOut) - shiftHoursFor(date));
 }
 function fmtH(h: number): string {
   if (h <= 0) return '—';
@@ -59,15 +61,25 @@ function fmtH(h: number): string {
   return mins === 0 ? `${hrs}h` : `${hrs}h ${mins}m`;
 }
 
+interface DayRow {
+  date: string;
+  status: string;
+  checkIn: string | null;
+  checkOut: string | null;
+  worked: number | null;
+  ot: number;
+}
 interface Row {
   employee: Employee;
   totalOt: number;
   totalWorked: number;
   daysWithTimes: number;
-  otDays: { date: string; checkIn: string; checkOut: string; worked: number; ot: number }[];
+  days: DayRow[];
 }
 
 function Overtime() {
+  const { can } = useAuth();
+  const canEdit = can('attendance:update');
   const now = new Date();
   const curYear = now.getUTCFullYear();
   const [year, setYear] = useState(curYear);
@@ -92,20 +104,26 @@ function Overtime() {
     const out: Row[] = [];
     for (const e of employees.data ?? []) {
       const recs = byEmp.get(e.id) ?? [];
-      const timed = recs.filter((r) => r.checkIn && r.checkOut);
-      if (timed.length === 0) continue; // only people with recorded times
+      if (recs.length === 0) continue;
       let totalOt = 0;
       let totalWorked = 0;
-      const otDays: Row['otDays'] = [];
-      for (const r of timed) {
-        const worked = elapsedHours(r.checkIn!, r.checkOut!);
-        const ot = overtimeOf(r);
-        totalWorked += worked;
-        totalOt += ot;
-        if (ot > 0) otDays.push({ date: r.date, checkIn: r.checkIn!, checkOut: r.checkOut!, worked, ot });
-      }
-      otDays.sort((a, b) => b.ot - a.ot);
-      out.push({ employee: e, totalOt, totalWorked, daysWithTimes: timed.length, otDays });
+      let daysWithTimes = 0;
+      const days: DayRow[] = recs
+        .slice()
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .map((r) => {
+          const worked = r.checkIn && r.checkOut ? elapsedHours(r.checkIn, r.checkOut) : null;
+          const ot = overtimeOf(r.date, r.checkIn, r.checkOut);
+          if (worked != null) {
+            totalWorked += worked;
+            totalOt += ot;
+            daysWithTimes += 1;
+          }
+          return { date: r.date, status: r.status, checkIn: r.checkIn, checkOut: r.checkOut, worked, ot };
+        });
+      // Keep the view overtime-focused: only people with at least one timed day.
+      if (daysWithTimes === 0) continue;
+      out.push({ employee: e, totalOt, totalWorked, daysWithTimes, days });
     }
     return out.sort((a, b) => b.totalOt - a.totalOt);
   }, [attendance.data, employees.data]);
@@ -179,13 +197,11 @@ function Overtime() {
                 {rows.map((r) => (
                   <Fragment key={r.employee.id}>
                     <tr
-                      className={r.otDays.length ? 'cursor-pointer hover:bg-panel2/50' : ''}
-                      onClick={() => r.otDays.length && setOpen(open === r.employee.id ? null : r.employee.id)}
+                      className="cursor-pointer hover:bg-panel2/50"
+                      onClick={() => setOpen(open === r.employee.id ? null : r.employee.id)}
                     >
                       <td className={`${ui.td} whitespace-nowrap`}>
-                        {r.otDays.length > 0 && (
-                          <span className="text-muted mr-1">{open === r.employee.id ? '▾' : '▸'}</span>
-                        )}
+                        <span className="text-muted mr-1">{open === r.employee.id ? '▾' : '▸'}</span>
                         {r.employee.name}
                       </td>
                       <td className={ui.td}>{r.daysWithTimes}</td>
@@ -199,21 +215,35 @@ function Overtime() {
                         </div>
                       </td>
                     </tr>
-                    {open === r.employee.id && r.otDays.length > 0 && (
+                    {open === r.employee.id && (
                       <tr>
-                        <td className={`${ui.td} bg-panel2/30`} colSpan={4}>
-                          <div className="text-xs">
-                            <div className="text-muted mb-2">Overtime days — standard shift {shiftHoursFor(from)}h:</div>
-                            <div className="grid gap-1 [grid-template-columns:repeat(auto-fill,minmax(230px,1fr))]">
-                              {r.otDays.map((d) => (
-                                <div key={d.date} className="flex justify-between gap-3 border border-line rounded px-2 py-1">
-                                  <span>{d.date}</span>
-                                  <span className="text-muted">{d.checkIn}–{d.checkOut}</span>
-                                  <span className="text-amber-300 font-semibold">+{fmtH(d.ot)}</span>
-                                </div>
-                              ))}
-                            </div>
+                        <td className="bg-panel2/30 px-4 py-3 border-b border-line" colSpan={4}>
+                          <div className="text-muted text-xs mb-2">
+                            Each logged day — overtime is time beyond the shift (9h from Oct 5, 2026; 12h before).
                           </div>
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="text-muted">
+                                <th className="text-left font-medium py-1">Date</th>
+                                <th className="text-left font-medium py-1">Sign in</th>
+                                <th className="text-left font-medium py-1">Sign out</th>
+                                <th className="text-left font-medium py-1">Worked</th>
+                                <th className="text-left font-medium py-1">Overtime</th>
+                                {canEdit && <th className="text-left font-medium py-1">Edit</th>}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {r.days.map((d) => (
+                                <DayLine
+                                  key={d.date}
+                                  employeeId={r.employee.id}
+                                  day={d}
+                                  canEdit={canEdit}
+                                  onSaved={() => attendance.reload()}
+                                />
+                              ))}
+                            </tbody>
+                          </table>
                         </td>
                       </tr>
                     )}
@@ -224,7 +254,7 @@ function Overtime() {
                     <td className={`${ui.td} text-muted`} colSpan={4}>
                       No overtime to show for {period}. Overtime is computed from recorded check-in and
                       check-out times — it fills in as people sign in/out in Slack (or when times are
-                      added manually on the Attendance page).
+                      added manually here or on the Attendance page).
                     </td>
                   </tr>
                 )}
@@ -233,12 +263,107 @@ function Overtime() {
           </div>
 
           <p className="text-muted text-xs mt-3">
-            Overtime = time present beyond the standard shift ({shiftHoursFor(from)}h from Oct 5, 2026;
-            12h before). Only days with both a check-in and a check-out are counted.
+            Overtime = time present beyond the standard shift (9h from Oct 5, 2026; 12h before). Only days
+            with both a sign-in and a sign-out count toward worked hours and overtime.
           </p>
         </>
       )}
     </>
+  );
+}
+
+// One day in the per-employee breakdown, with inline editing of the times.
+function DayLine({
+  employeeId,
+  day,
+  canEdit,
+  onSaved,
+}: {
+  employeeId: string;
+  day: DayRow;
+  canEdit: boolean;
+  onSaved: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [ci, setCi] = useState(day.checkIn ?? '');
+  const [co, setCo] = useState(day.checkOut ?? '');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  async function save() {
+    setBusy(true);
+    setErr('');
+    try {
+      await api('/api/attendance', {
+        method: 'PUT',
+        body: JSON.stringify({
+          employeeId,
+          date: day.date,
+          status: day.status || 'present',
+          checkIn: ci.trim() || null,
+          checkOut: co.trim() || null,
+        }),
+      });
+      setEditing(false);
+      onSaved();
+    } catch (e) {
+      setErr((e as ApiError).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (editing) {
+    return (
+      <tr className="border-t border-line/60">
+        <td className="py-1.5">{day.date}</td>
+        <td className="py-1.5" colSpan={canEdit ? 5 : 4}>
+          <div className="flex items-center gap-2 flex-wrap">
+            <input
+              className={`${ui.input} !w-24 !py-1`}
+              placeholder="HH:MM"
+              value={ci}
+              onChange={(e) => setCi(e.target.value)}
+            />
+            <span className="text-muted">→</span>
+            <input
+              className={`${ui.input} !w-24 !py-1`}
+              placeholder="HH:MM"
+              value={co}
+              onChange={(e) => setCo(e.target.value)}
+            />
+            <button className={`${ui.btn} !py-1 !px-3`} onClick={save} disabled={busy}>
+              {busy ? '…' : 'Save'}
+            </button>
+            <button
+              className={`${ui.btnGhost} !py-1 !px-3`}
+              onClick={() => { setEditing(false); setCi(day.checkIn ?? ''); setCo(day.checkOut ?? ''); }}
+            >
+              Cancel
+            </button>
+            <span className="text-muted">(24h, e.g. 11:00 and 20:30)</span>
+            {err && <span className="text-danger">{err}</span>}
+          </div>
+        </td>
+      </tr>
+    );
+  }
+
+  return (
+    <tr className="border-t border-line/60">
+      <td className="py-1.5">{day.date}</td>
+      <td className="py-1.5">{day.checkIn ?? '—'}</td>
+      <td className="py-1.5">{day.checkOut ?? '—'}</td>
+      <td className="py-1.5">{day.worked != null ? fmtH(day.worked) : '—'}</td>
+      <td className={`py-1.5 ${day.ot > 0 ? 'text-amber-300 font-semibold' : 'text-muted'}`}>
+        {day.ot > 0 ? `+${fmtH(day.ot)}` : '—'}
+      </td>
+      {canEdit && (
+        <td className="py-1.5">
+          <button className={`${ui.btnGhost} !py-1 !px-3`} onClick={() => setEditing(true)}>Edit</button>
+        </td>
+      )}
+    </tr>
   );
 }
 

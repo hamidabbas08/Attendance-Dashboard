@@ -21,6 +21,8 @@ interface Record {
   employeeId: string;
   date: string;
   status: string;
+  checkIn: string | null;
+  checkOut: string | null;
 }
 
 const MONTHS = [
@@ -44,6 +46,34 @@ const SUMMARY_WIDTH = W.name + W.present + W.absent + W.pct;
 
 function pad(n: number) {
   return String(n).padStart(2, '0');
+}
+function parseHM(s: string): number {
+  const [h, m] = s.split(':').map(Number);
+  return h + (m || 0) / 60;
+}
+/** Logged hours between sign-in and sign-out (checkout ≤ checkin = overnight). */
+function loggedHours(checkIn: string, checkOut: string): number {
+  const a = parseHM(checkIn);
+  let b = parseHM(checkOut);
+  if (b <= a) b += 24;
+  return b - a;
+}
+function fmtDur(h: number): string {
+  const hrs = Math.floor(h);
+  const mins = Math.round((h - hrs) * 60);
+  return mins === 0 ? `${hrs}h` : `${hrs}h ${mins}m`;
+}
+/** Hover text for a cell: name, date, status, and logged hours from Slack. */
+function cellTitle(name: string, date: string, t: string, rec: Record | undefined): string {
+  let line = `${name} · ${date}${t ? ` · ${t}` : ''}`;
+  if (rec?.checkIn && rec?.checkOut) {
+    line += `\nSign in ${rec.checkIn} → Sign out ${rec.checkOut} · Logged ${fmtDur(loggedHours(rec.checkIn, rec.checkOut))}`;
+  } else if (rec?.checkIn) {
+    line += `\nSign in ${rec.checkIn} · no sign-out yet`;
+  } else if (rec?.checkOut) {
+    line += `\nSign out ${rec.checkOut}`;
+  }
+  return line;
 }
 function today() {
   return new Date().toISOString().slice(0, 10);
@@ -231,7 +261,8 @@ function Attendance() {
                 const rec = recIndex.get(`${e.id}|${d}`);
                 if (rec?.status === 'present' || rec?.status === 'late') present += 1;
                 if (rec?.status === 'absent') absent += 1;
-                return { d, ...cellFor(d, rec) };
+                const cell = cellFor(d, rec);
+                return { d, ...cell, title: cellTitle(e.name, d, cell.t, rec) };
               });
               const pct = present + absent > 0 ? Math.round((present / (present + absent)) * 100) : 0;
               const rowBg = idx % 2 ? 'bg-panel' : 'bg-panel2/40';
@@ -255,7 +286,7 @@ function Attendance() {
                     return (
                       <td
                         key={c.d}
-                        title={`${e.name} · ${c.d}${c.t ? ` · ${c.t}` : ''}`}
+                        title={c.title}
                         className={`text-center border-b border-line ${first ? 'border-l-2 border-l-line' : 'border-l border-line'} ${c.cls}`}
                         style={{ ...dayCell, height: 26 }}
                       >

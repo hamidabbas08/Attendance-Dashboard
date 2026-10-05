@@ -33,22 +33,26 @@ export async function syncWorkspaceMembers(workspace: SlackWorkspace): Promise<S
   if (!token) return { imported: 0, updated: 0, terminated: 0, total: 0 };
 
   const channel = config.slackAttendanceChannel || (await findChannelByName(token, 'attendance'));
-  if (!channel) return { imported: 0, updated: 0, terminated: 0, total: 0 };
-  await joinChannel(token, channel); // best-effort so we can read membership
+  if (channel) await joinChannel(token, channel); // best-effort so we can read membership
 
-  const memberIds = new Set(await fetchChannelMemberIds(token, channel));
-  if (memberIds.size === 0) return { imported: 0, updated: 0, terminated: 0, total: 0 };
+  // Channel membership (needs channels:read). If we can read it, the roster
+  // mirrors the channel and leavers are auto-terminated. If we can't (missing
+  // scope, etc.), fall back to syncing every workspace member so the roster
+  // still populates with names, emails and avatars — just without auto-terminate.
+  const memberIds = channel ? new Set(await fetchChannelMemberIds(token, channel)) : new Set<string>();
+  const haveChannel = memberIds.size > 0;
 
-  // users.list gives names/emails/avatars; keep only those in the channel.
+  // users.list gives names/emails/avatars.
   const all = await fetchSlackMembers(token);
-  const channelMembers = all.filter((m) => memberIds.has(m.slackUserId));
+  if (all.length === 0) return { imported: 0, updated: 0, terminated: 0, total: 0 };
+  const members = haveChannel ? all.filter((m) => memberIds.has(m.slackUserId)) : all;
 
   const repo = new TenantRepository(store, { companyId: workspace.companyId, crossTenant: false });
   const roster = repo.listEmployees();
   let imported = 0;
   let updated = 0;
 
-  for (const m of channelMembers) {
+  for (const m of members) {
     const existing =
       roster.find((e) => e.slackUserId === m.slackUserId) ??
       (m.email ? roster.find((e) => e.email && e.email.toLowerCase() === m.email.toLowerCase()) : undefined) ??
@@ -78,16 +82,20 @@ export async function syncWorkspaceMembers(workspace: SlackWorkspace): Promise<S
   }
 
   // Auto-terminate anyone active (and linked to Slack) who is no longer in the
-  // channel — they left or were removed. History is preserved.
+  // channel — they left or were removed. History is preserved. Only when we
+  // could actually read channel membership, so a missing scope never wrongly
+  // terminates everyone.
   let terminated = 0;
-  for (const e of repo.listEmployees()) {
-    if (e.status === 'active' && e.slackUserId && !memberIds.has(e.slackUserId)) {
-      repo.updateEmployee(e.id, { status: 'terminated', terminatedAt: today() });
-      terminated += 1;
+  if (haveChannel) {
+    for (const e of repo.listEmployees()) {
+      if (e.status === 'active' && e.slackUserId && !memberIds.has(e.slackUserId)) {
+        repo.updateEmployee(e.id, { status: 'terminated', terminatedAt: today() });
+        terminated += 1;
+      }
     }
   }
 
-  return { imported, updated, terminated, total: channelMembers.length };
+  return { imported, updated, terminated, total: members.length };
 }
 
 /** Sync every linked workspace. Best-effort; used by the scheduler. */

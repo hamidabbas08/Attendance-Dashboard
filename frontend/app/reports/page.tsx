@@ -1,9 +1,10 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { getToken } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
-import { MonthlyBars, StatTile, StatusBars, Guard, TableSkeleton, TilesSkeleton } from '../../lib/components';
+import { Avatar, MonthlyBars, StatTile, StatusBars, Guard, TableSkeleton, TilesSkeleton } from '../../lib/components';
 import { P } from '../../lib/permissions';
 import { ui } from '../../lib/ui';
 import { useFetch } from '../../lib/useFetch';
@@ -29,6 +30,8 @@ function Reports() {
   const curYear = new Date().getUTCFullYear();
   const [year, setYear] = useState(curYear);
   const { data, loading } = useFetch<Matrix>(`/api/reports/attendance/matrix?year=${year}`);
+  const employees = useFetch<{ id: string; avatarUrl?: string | null }[]>('/api/employees');
+  const avatarById = new Map((employees.data ?? []).map((e) => [e.id, e.avatarUrl ?? null]));
 
   const t = data?.companyTotals;
   const monthly = (data?.companyByMonth ?? []).map((c, i) => ({ label: MONTHS[i], value: attended(c) + c.absent > 0 ? rate(c) : null }));
@@ -105,7 +108,14 @@ function Reports() {
           <tbody>
             {rows.map((e) => (
               <tr key={e.employeeId}>
-                <td className={`${ui.td} whitespace-nowrap`}>{e.name}</td>
+                <td className={`${ui.td} whitespace-nowrap`}>
+                  <div className="flex items-center gap-2.5">
+                    <Avatar src={avatarById.get(e.employeeId)} name={e.name} size={28} />
+                    <Link href={`/employee/${e.employeeId}`} className="hover:underline hover:text-accent">
+                      {e.name}
+                    </Link>
+                  </div>
+                </td>
                 <td className={`${ui.td} text-emerald-300 font-semibold`}>{attended(e.totals)}</td>
                 <td className={`${ui.td} text-amber-300`}>{e.totals.late}</td>
                 <td className={`${ui.td} text-red-300 font-semibold`}>{e.totals.absent}</td>

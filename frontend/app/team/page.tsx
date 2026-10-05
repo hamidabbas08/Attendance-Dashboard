@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { api, ApiError } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
@@ -175,7 +176,9 @@ function TeamRow({
             <input className={`${ui.input} !w-44`} value={name} onChange={(e) => setName(e.target.value)} />
           ) : (
             <span>
-              {employee.name}
+              <Link href={`/employee/${employee.id}`} className="hover:underline hover:text-accent">
+                {employee.name}
+              </Link>
               {isSelf && <span className="text-muted"> (you)</span>}
             </span>
           )}

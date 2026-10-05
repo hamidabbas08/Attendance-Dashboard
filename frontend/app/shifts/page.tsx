@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { api, ApiError } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
-import { Avatar, Guard } from '../../lib/components';
+import { Avatar, Guard, TableSkeleton } from '../../lib/components';
 import { P } from '../../lib/permissions';
 import { ui } from '../../lib/ui';
 import { useFetch } from '../../lib/useFetch';
@@ -28,6 +28,7 @@ function Shifts() {
   const editable = can('shifts:update');
 
   const shiftById = new Map((shifts.data ?? []).map((s) => [s.id, s]));
+  const loading = employees.loading && !employees.data;
 
   return (
     <>
@@ -36,6 +37,9 @@ function Shifts() {
         Set each employee&apos;s working hours below. Attendance is marked late when someone
         checks in after their start time plus the grace period.
       </p>
+      {loading ? (
+        <TableSkeleton rows={8} cols={editable ? 5 : 4} />
+      ) : (
       <div className={`${ui.card} overflow-x-auto`}>
         <table className={ui.table}>
           <thead>
@@ -66,6 +70,7 @@ function Shifts() {
           </tbody>
         </table>
       </div>
+      )}
     </>
   );
 }

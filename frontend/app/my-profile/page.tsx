@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useAuth } from '../../lib/auth';
 import { ui } from '../../lib/ui';
+import { Skeleton } from '../../lib/components';
 import { useFetch } from '../../lib/useFetch';
 
 const ROLE_LABEL: Record<string, string> = {
@@ -31,11 +32,12 @@ function initials(name: string) {
 export default function MyProfile() {
   const { me } = useAuth();
   const year = new Date().getUTCFullYear();
-  const { data } = useFetch<Rec[]>('/api/attendance/me');
+  const { data, loading } = useFetch<Rec[]>('/api/attendance/me');
   const meInfo = useFetch<{ employee: { avatarUrl: string | null } | null; shift: Shift | null }>('/api/employees/me');
   const shift = meInfo.data?.shift ?? null;
   const avatarUrl = meInfo.data?.employee?.avatarUrl ?? null;
-  const shiftText = shift ? `${shift.startTime} – ${shift.endTime} (${shift.graceMins}m grace)` : 'Not set';
+  const shiftText = meInfo.loading && !meInfo.data ? '…' : shift ? `${shift.startTime} – ${shift.endTime} (${shift.graceMins}m grace)` : 'Not set';
+  const statsLoading = loading && !data;
   const records = (data ?? []).filter((r) => r.date.startsWith(`${year}-`));
   const present = records.filter((r) => r.status === 'present' || r.status === 'late').length;
   const absent = records.filter((r) => r.status === 'absent').length;
@@ -77,20 +79,31 @@ export default function MyProfile() {
       </div>
 
       {/* Personal attendance snapshot */}
-      <div className="grid gap-4 sm:grid-cols-3 mb-5">
-        <div className="surface p-5">
-          <div className="text-3xl font-bold text-emerald-300">{present}</div>
-          <div className="text-muted text-[13px]">Present in {year}</div>
+      {statsLoading ? (
+        <div className="grid gap-4 sm:grid-cols-3 mb-5">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="surface p-5">
+              <Skeleton className="h-8 w-16 mb-2" />
+              <Skeleton className="h-3 w-24" />
+            </div>
+          ))}
         </div>
-        <div className="surface p-5">
-          <div className="text-3xl font-bold text-red-300">{absent}</div>
-          <div className="text-muted text-[13px]">Absent in {year}</div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-3 mb-5">
+          <div className="surface p-5">
+            <div className="text-3xl font-bold text-emerald-300">{present}</div>
+            <div className="text-muted text-[13px]">Present in {year}</div>
+          </div>
+          <div className="surface p-5">
+            <div className="text-3xl font-bold text-red-300">{absent}</div>
+            <div className="text-muted text-[13px]">Absent in {year}</div>
+          </div>
+          <div className="surface p-5">
+            <div className="text-3xl font-bold">{rate == null ? '—' : `${rate}%`}</div>
+            <div className="text-muted text-[13px]">Attendance rate</div>
+          </div>
         </div>
-        <div className="surface p-5">
-          <div className="text-3xl font-bold">{rate == null ? '—' : `${rate}%`}</div>
-          <div className="text-muted text-[13px]">Attendance rate</div>
-        </div>
-      </div>
+      )}
 
       {/* Details + quick links */}
       <div className="grid gap-5 md:grid-cols-2">

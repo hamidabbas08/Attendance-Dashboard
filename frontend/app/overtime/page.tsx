@@ -3,7 +3,7 @@
 import { Fragment, useMemo, useState } from 'react';
 import { api, ApiError } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
-import { Guard, StatTile, TableSkeleton, TilesSkeleton } from '../../lib/components';
+import { Avatar, Guard, StatTile, TableSkeleton, TilesSkeleton } from '../../lib/components';
 import { P } from '../../lib/permissions';
 import { ui } from '../../lib/ui';
 import { useFetch } from '../../lib/useFetch';
@@ -12,6 +12,7 @@ interface Employee {
   id: string;
   name: string;
   status: string;
+  avatarUrl?: string | null;
 }
 interface Record {
   id: string;
@@ -338,8 +339,11 @@ function TeamOvertime() {
                       onClick={() => setOpen(open === r.employee.id ? null : r.employee.id)}
                     >
                       <td className={`${ui.td} whitespace-nowrap`}>
-                        <span className="text-muted mr-1">{open === r.employee.id ? '▾' : '▸'}</span>
-                        {r.employee.name}
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted">{open === r.employee.id ? '▾' : '▸'}</span>
+                          <Avatar src={r.employee.avatarUrl} name={r.employee.name} size={26} />
+                          <span>{r.employee.name}</span>
+                        </div>
                       </td>
                       <td className={ui.td}>{r.daysWithTimes}</td>
                       <td className={ui.td}>{fmtH(r.totalWorked)}</td>

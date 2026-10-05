@@ -131,13 +131,13 @@ slackRouter.post(
       let updated = 0;
       const roster = repo.listEmployees();
       for (const m of members) {
-        // Match by Slack id, else by email, else by name — even if the record
-        // already has a (now-stale) Slack id, so a member who switched Slack
-        // accounts relinks to their original record instead of duplicating.
+        // Match by Slack id, else by exact email, else by name but ONLY for an
+        // unclaimed imported row (no Slack id). This keeps two different people
+        // who share a name as separate members instead of merging them.
         const existing =
           roster.find((e) => e.slackUserId === m.slackUserId) ??
           (m.email ? roster.find((e) => e.email && e.email.toLowerCase() === m.email.toLowerCase()) : undefined) ??
-          roster.find((e) => e.name.toLowerCase() === m.name.toLowerCase());
+          roster.find((e) => !e.slackUserId && e.name.toLowerCase() === m.name.toLowerCase());
         if (existing) {
           repo.updateEmployee(existing.id, {
             name: m.name,

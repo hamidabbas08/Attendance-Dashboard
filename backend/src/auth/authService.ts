@@ -23,21 +23,22 @@ export function resolvePrincipal(userId: string): Principal {
   const employees = [...store.employees.values()].filter((e) => e.companyId === user.companyId);
   const nameLc = user.name.toLowerCase();
   const emailLc = user.email ? user.email.toLowerCase() : '';
-  const candidates = employees.filter(
+  // Prefer an exact identity match (user link, Slack id, or email) so two people
+  // who share a name are never confused. Only when there is no exact match do we
+  // fall back to matching by name (links a signed-in owner to an imported row).
+  const exact = employees.filter(
     (e) =>
       e.userId === user.id ||
       (!!user.slackUserId && e.slackUserId === user.slackUserId) ||
-      (!!emailLc && !!e.email && e.email.toLowerCase() === emailLc) ||
-      e.name.toLowerCase() === nameLc,
+      (!!emailLc && !!e.email && e.email.toLowerCase() === emailLc),
   );
+  const pool = exact.length ? exact : employees.filter((e) => e.name.toLowerCase() === nameLc);
   const recordCount = (employeeId: string) => {
     let n = 0;
     for (const r of store.attendanceRecords.values()) if (r.employeeId === employeeId) n += 1;
     return n;
   };
-  const employee = candidates
-    .slice()
-    .sort((a, b) => recordCount(b.id) - recordCount(a.id))[0];
+  const employee = pool.slice().sort((a, b) => recordCount(b.id) - recordCount(a.id))[0];
 
   // Effective role = the strongest of the account role and the team (employee)
   // role, so an owner can assign roles to anyone on the team without them

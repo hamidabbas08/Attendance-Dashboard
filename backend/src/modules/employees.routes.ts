@@ -13,6 +13,20 @@ employeesRouter.get('/', requirePermission(PERMISSIONS.EMPLOYEES_VIEW), (req, re
   res.json(repoFor(req).listEmployees());
 });
 
+// The logged-in user's own employee record + assigned shift. Any authenticated
+// user can read their own (so employees can see their shift and overtime).
+employeesRouter.get('/me', requirePermission(PERMISSIONS.ATTENDANCE_VIEW_OWN), (req, res) => {
+  const principal = principalOf(req);
+  if (!principal.employeeId) {
+    res.json({ employee: null, shift: null });
+    return;
+  }
+  const repo = repoFor(req);
+  const employee = repo.getEmployee(principal.employeeId);
+  const shift = employee.shiftId ? repo.getShift(employee.shiftId) : null;
+  res.json({ employee, shift });
+});
+
 const hhmm = z.string().regex(/^\d{2}:\d{2}$/, 'Expected HH:MM');
 const shiftSchema = z.object({
   startTime: hhmm,

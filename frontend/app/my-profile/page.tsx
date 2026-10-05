@@ -22,6 +22,7 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 interface Rec { status: string; date: string }
+interface Shift { name: string; startTime: string; endTime: string; graceMins: number }
 
 function initials(name: string) {
   return name.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase() || '?';
@@ -31,6 +32,9 @@ export default function MyProfile() {
   const { me } = useAuth();
   const year = new Date().getUTCFullYear();
   const { data } = useFetch<Rec[]>('/api/attendance/me');
+  const meInfo = useFetch<{ shift: Shift | null }>('/api/employees/me');
+  const shift = meInfo.data?.shift ?? null;
+  const shiftText = shift ? `${shift.startTime} – ${shift.endTime} (${shift.graceMins}m grace)` : 'Not set';
   const records = (data ?? []).filter((r) => r.date.startsWith(`${year}-`));
   const present = records.filter((r) => r.status === 'present' || r.status === 'late').length;
   const absent = records.filter((r) => r.status === 'absent').length;
@@ -87,6 +91,7 @@ export default function MyProfile() {
               ['Email', me.email ?? '—'],
               ['Company', me.companyName ?? '—'],
               ['Role', role],
+              ['Shift', shiftText],
             ].map(([k, v]) => (
               <div key={k} className="flex justify-between py-2 border-b border-line/60 last:border-0">
                 <dt className="text-muted">{k}</dt>

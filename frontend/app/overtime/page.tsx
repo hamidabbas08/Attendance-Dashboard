@@ -21,6 +21,12 @@ interface Record {
   checkIn: string | null;
   checkOut: string | null;
 }
+interface Shift {
+  name: string;
+  startTime: string;
+  endTime: string;
+  graceMins: number;
+}
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -69,15 +75,183 @@ interface DayRow {
   worked: number | null;
   ot: number;
 }
-interface Row {
-  employee: Employee;
-  totalOt: number;
-  totalWorked: number;
-  daysWithTimes: number;
-  days: DayRow[];
+
+/** Per-day worked/overtime for one person's records, plus totals. */
+function computeDays(recs: Record[]) {
+  let totalOt = 0;
+  let totalWorked = 0;
+  let daysWithTimes = 0;
+  const days: DayRow[] = recs
+    .slice()
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((r) => {
+      const worked = r.checkIn && r.checkOut ? elapsedHours(r.checkIn, r.checkOut) : null;
+      const ot = overtimeOf(r.date, r.checkIn, r.checkOut);
+      if (worked != null) {
+        totalWorked += worked;
+        totalOt += ot;
+        daysWithTimes += 1;
+      }
+      return { date: r.date, status: r.status, checkIn: r.checkIn, checkOut: r.checkOut, worked, ot };
+    });
+  return { days, totalOt, totalWorked, daysWithTimes };
 }
 
-function Overtime() {
+/** Year + month selector shared by both views. */
+function PeriodControls({
+  year, setYear, month, setMonth, curYear,
+}: {
+  year: number; setYear: (y: number) => void;
+  month: number | 'all'; setMonth: (m: number | 'all') => void; curYear: number;
+}) {
+  return (
+    <div className="flex items-end gap-3">
+      <div>
+        <label className={ui.label}>Year</label>
+        <select className={ui.input} value={year} onChange={(e) => setYear(Number(e.target.value))}>
+          {[curYear - 1, curYear, curYear + 1].map((y) => (
+            <option key={y} value={y}>{y}</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className={ui.label}>Month</label>
+        <select
+          className={ui.input}
+          value={month}
+          onChange={(e) => setMonth(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+        >
+          <option value="all">Full year</option>
+          {MONTHS.map((m, i) => (
+            <option key={m} value={i}>{m}</option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+}
+
+function rangeFor(year: number, month: number | 'all') {
+  const from = month === 'all' ? `${year}-01-01` : `${year}-${pad(month + 1)}-01`;
+  const to =
+    month === 'all'
+      ? `${year}-12-31`
+      : `${year}-${pad(month + 1)}-${pad(new Date(Date.UTC(year, month + 1, 0)).getUTCDate())}`;
+  return { from, to };
+}
+
+function ShiftBanner({ shift }: { shift: Shift | null }) {
+  return (
+    <div className="surface p-4 mb-5 flex items-center gap-3 flex-wrap">
+      <span className="text-muted text-sm">Your shift:</span>
+      {shift ? (
+        <span className="font-semibold">
+          {shift.startTime} – {shift.endTime}
+          <span className="text-muted font-normal"> · {shift.graceMins}m grace{shift.name ? ` · ${shift.name}` : ''}</span>
+        </span>
+      ) : (
+        <span className="text-muted">Not set yet — your HR/owner can assign a shift on the Shifts page.</span>
+      )}
+    </div>
+  );
+}
+
+function fmtDur(h: number) {
+  return fmtH(h);
+}
+
+// ------------------------------------------------------------------ Personal
+
+function PersonalOvertime() {
+  const now = new Date();
+  const curYear = now.getUTCFullYear();
+  const [year, setYear] = useState(curYear);
+  const [month, setMonth] = useState<number | 'all'>(now.getUTCMonth());
+
+  const meInfo = useFetch<{ employee: Employee | null; shift: Shift | null }>('/api/employees/me');
+  const attendance = useFetch<Record[]>('/api/attendance/me');
+
+  const { from, to } = rangeFor(year, month);
+  const { days, totalOt, totalWorked, daysWithTimes } = useMemo(() => {
+    const recs = (attendance.data ?? []).filter((r) => r.date >= from && r.date <= to);
+    return computeDays(recs);
+  }, [attendance.data, from, to]);
+
+  const loading = attendance.loading && !attendance.data;
+  const period = month === 'all' ? `${year}` : `${MONTHS[month]} ${year}`;
+
+  return (
+    <>
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
+        <div>
+          <h2 className={ui.h2}>My Overtime</h2>
+          <p className={ui.subtitle}>Your hours beyond the standard shift</p>
+        </div>
+        <PeriodControls year={year} setYear={setYear} month={month} setMonth={setMonth} curYear={curYear} />
+      </div>
+
+      <ShiftBanner shift={meInfo.data?.shift ?? null} />
+
+      {loading ? (
+        <>
+          <div className={`${ui.grid} mb-5`}><TilesSkeleton count={3} /></div>
+          <TableSkeleton rows={6} cols={5} />
+        </>
+      ) : (
+        <>
+          <div className={`${ui.grid} mb-5`}>
+            <StatTile label={`My overtime · ${period}`} value={fmtH(totalOt)} accent="#f59e0b" />
+            <StatTile label="Days logged" value={daysWithTimes} accent="#38bdf8" />
+            <StatTile label="Total worked" value={fmtH(totalWorked)} accent="#a78bfa" />
+          </div>
+
+          <div className="surface p-5 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-muted">
+                  <th className="text-left font-medium py-2">Date</th>
+                  <th className="text-left font-medium py-2">Sign in</th>
+                  <th className="text-left font-medium py-2">Sign out</th>
+                  <th className="text-left font-medium py-2">Worked</th>
+                  <th className="text-left font-medium py-2">Overtime</th>
+                </tr>
+              </thead>
+              <tbody>
+                {days.map((d) => (
+                  <tr key={d.date} className="border-t border-line/60">
+                    <td className="py-1.5">{d.date}</td>
+                    <td className="py-1.5">{d.checkIn ?? '—'}</td>
+                    <td className="py-1.5">{d.checkOut ?? '—'}</td>
+                    <td className="py-1.5">{d.worked != null ? fmtDur(d.worked) : '—'}</td>
+                    <td className={`py-1.5 ${d.ot > 0 ? 'text-amber-300 font-semibold' : 'text-muted'}`}>
+                      {d.ot > 0 ? `+${fmtDur(d.ot)}` : '—'}
+                    </td>
+                  </tr>
+                ))}
+                {days.length === 0 && (
+                  <tr>
+                    <td className="py-3 text-muted" colSpan={5}>
+                      No attendance recorded for {period}.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <p className="text-muted text-xs mt-3">
+            Overtime = time present beyond the standard shift (9h from Oct 5, 2026; 12h before). Only days
+            with both a sign-in and a sign-out count toward worked hours and overtime.
+          </p>
+        </>
+      )}
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------- Team
+
+function TeamOvertime() {
   const { can } = useAuth();
   const canEdit = can('attendance:update');
   const now = new Date();
@@ -86,44 +260,24 @@ function Overtime() {
   const [month, setMonth] = useState<number | 'all'>(now.getUTCMonth());
   const [open, setOpen] = useState<string | null>(null);
 
-  const from = month === 'all' ? `${year}-01-01` : `${year}-${pad(month + 1)}-01`;
-  const to =
-    month === 'all'
-      ? `${year}-12-31`
-      : `${year}-${pad(month + 1)}-${pad(new Date(Date.UTC(year, month + 1, 0)).getUTCDate())}`;
+  const { from, to } = rangeFor(year, month);
 
   const employees = useFetch<Employee[]>('/api/employees');
   const attendance = useFetch<Record[]>(`/api/attendance?from=${from}&to=${to}`);
 
-  const rows = useMemo<Row[]>(() => {
+  const rows = useMemo(() => {
     const byEmp = new Map<string, Record[]>();
     for (const r of attendance.data ?? []) {
       if (!byEmp.has(r.employeeId)) byEmp.set(r.employeeId, []);
       byEmp.get(r.employeeId)!.push(r);
     }
-    const out: Row[] = [];
+    const out: { employee: Employee; totalOt: number; totalWorked: number; daysWithTimes: number; days: DayRow[] }[] = [];
     for (const e of employees.data ?? []) {
       const recs = byEmp.get(e.id) ?? [];
       if (recs.length === 0) continue;
-      let totalOt = 0;
-      let totalWorked = 0;
-      let daysWithTimes = 0;
-      const days: DayRow[] = recs
-        .slice()
-        .sort((a, b) => a.date.localeCompare(b.date))
-        .map((r) => {
-          const worked = r.checkIn && r.checkOut ? elapsedHours(r.checkIn, r.checkOut) : null;
-          const ot = overtimeOf(r.date, r.checkIn, r.checkOut);
-          if (worked != null) {
-            totalWorked += worked;
-            totalOt += ot;
-            daysWithTimes += 1;
-          }
-          return { date: r.date, status: r.status, checkIn: r.checkIn, checkOut: r.checkOut, worked, ot };
-        });
-      // Keep the view overtime-focused: only people with at least one timed day.
-      if (daysWithTimes === 0) continue;
-      out.push({ employee: e, totalOt, totalWorked, daysWithTimes, days });
+      const c = computeDays(recs);
+      if (c.daysWithTimes === 0) continue;
+      out.push({ employee: e, ...c });
     }
     return out.sort((a, b) => b.totalOt - a.totalOt);
   }, [attendance.data, employees.data]);
@@ -141,29 +295,7 @@ function Overtime() {
           <h2 className={ui.h2}>Overtime</h2>
           <p className={ui.subtitle}>Hours worked beyond the standard shift</p>
         </div>
-        <div className="flex items-end gap-3">
-          <div>
-            <label className={ui.label}>Year</label>
-            <select className={ui.input} value={year} onChange={(e) => setYear(Number(e.target.value))}>
-              {[curYear - 1, curYear, curYear + 1].map((y) => (
-                <option key={y} value={y}>{y}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className={ui.label}>Month</label>
-            <select
-              className={ui.input}
-              value={month}
-              onChange={(e) => setMonth(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-            >
-              <option value="all">Full year</option>
-              {MONTHS.map((m, i) => (
-                <option key={m} value={i}>{m}</option>
-              ))}
-            </select>
-          </div>
-        </div>
+        <PeriodControls year={year} setYear={setYear} month={month} setMonth={setMonth} curYear={curYear} />
       </div>
 
       {loading ? (
@@ -367,10 +499,15 @@ function DayLine({
   );
 }
 
+function Switcher() {
+  const { can } = useAuth();
+  return can('attendance:view_all') ? <TeamOvertime /> : <PersonalOvertime />;
+}
+
 export default function Page() {
   return (
-    <Guard perm={P.ATTENDANCE_VIEW_ALL}>
-      <Overtime />
+    <Guard perm={P.ATTENDANCE_VIEW_OWN}>
+      <Switcher />
     </Guard>
   );
 }

@@ -32,8 +32,12 @@ function counts(records: Record[]) {
   return { present, absent, leave, pct };
 }
 
+interface Shift { name: string; startTime: string; endTime: string; graceMins: number }
+
 function MyAttendance() {
   const { data, loading } = useFetch<Record[]>('/api/attendance/me');
+  const meInfo = useFetch<{ shift: Shift | null }>('/api/employees/me');
+  const shift = meInfo.data?.shift ?? null;
   const all = data ?? [];
   const curYear = new Date().getUTCFullYear();
   const [year, setYear] = useState(curYear);
@@ -66,6 +70,18 @@ function MyAttendance() {
             ))}
           </select>
         </div>
+      </div>
+
+      <div className="surface p-4 mb-5 flex items-center gap-3 flex-wrap">
+        <span className="text-muted text-sm">Your shift:</span>
+        {shift ? (
+          <span className="font-semibold">
+            {shift.startTime} – {shift.endTime}
+            <span className="text-muted font-normal"> · {shift.graceMins}m grace{shift.name ? ` · ${shift.name}` : ''}</span>
+          </span>
+        ) : (
+          <span className="text-muted">Not set yet — your HR/owner assigns shifts.</span>
+        )}
       </div>
 
       {loading && !data ? (

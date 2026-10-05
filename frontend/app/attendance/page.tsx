@@ -28,6 +28,9 @@ const MONTHS = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 const WD = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+// Saturdays are standard days off for everyone from this date onward (HR policy,
+// Oct 2026). 2026-10-03 is the first such Saturday.
+const SATURDAY_OFF_FROM = '2026-10-03';
 
 // Fixed widths so the frozen summary columns can be pinned precisely.
 const W = { name: 190, present: 74, absent: 74, pct: 60, day: 30 };
@@ -75,6 +78,10 @@ function cellFor(date: string, rec: Record | undefined): { t: string; cls: strin
         return { t: 'Off', cls: 'text-muted' };
     }
   }
+  // Saturdays are standard company days off from 2026-10-03 onward (HR policy).
+  // Anyone who still works an as-needed Saturday keeps their P from the record
+  // block above; everyone else shows Off (past and future alike).
+  if (wd === 6 && date >= SATURDAY_OFF_FROM) return { t: 'Off', cls: 'text-muted/70' };
   if (date > today()) return { t: '', cls: '' };
   if (wd === 0) return { t: 'Off', cls: 'text-muted/70' }; // Sunday
   return { t: '', cls: '' };
@@ -273,8 +280,8 @@ function Attendance() {
 
       <p className="text-muted text-xs mt-2">
         Legend: <b className="text-emerald-300">P</b> present (late counts as present) ·{' '}
-        <b className="text-red-400">A</b> absent · <b>Off</b> off day / Sunday · <b>L</b> leave ·{' '}
-        <b>½</b> half day · blank = not recorded.
+        <b className="text-red-400">A</b> absent · <b>Off</b> off day / Sunday &amp; Saturday (from Oct 3, 2026) ·{' '}
+        <b>L</b> leave · <b>½</b> half day · blank = not recorded.
       </p>
     </>
   );

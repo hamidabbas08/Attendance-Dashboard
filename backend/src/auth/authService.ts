@@ -15,18 +15,29 @@ export function resolvePrincipal(userId: string): Principal {
   if (!user || user.status !== 'active') {
     throw new UnauthorizedError('User not found or disabled');
   }
-  // Link the user to their employee record: first by an explicit user link,
-  // then by matching Slack user id within the same company (covers people who
-  // signed in via Slack and were also imported/synced as employees).
+  // Link the user to their employee record. Match by explicit user link, Slack
+  // user id, email, or name (covers people imported/synced, and people who
+  // switched Slack accounts). When several records match the same person — e.g.
+  // a duplicate created after a Slack account switch — pick the one that holds
+  // their attendance history so "My Attendance" shows their real data.
   const employees = [...store.employees.values()].filter((e) => e.companyId === user.companyId);
-  const employee =
-    employees.find((e) => e.userId === user.id) ??
-    (user.slackUserId ? employees.find((e) => e.slackUserId === user.slackUserId) : undefined) ??
-    // Last resort: match an unlinked employee by name (covers imported rows
-    // that have no Slack id, so a signed-in owner/HR still sees their own data).
-    employees.find(
-      (e) => !e.userId && e.name.toLowerCase() === user.name.toLowerCase(),
-    );
+  const nameLc = user.name.toLowerCase();
+  const emailLc = user.email ? user.email.toLowerCase() : '';
+  const candidates = employees.filter(
+    (e) =>
+      e.userId === user.id ||
+      (!!user.slackUserId && e.slackUserId === user.slackUserId) ||
+      (!!emailLc && !!e.email && e.email.toLowerCase() === emailLc) ||
+      e.name.toLowerCase() === nameLc,
+  );
+  const recordCount = (employeeId: string) => {
+    let n = 0;
+    for (const r of store.attendanceRecords.values()) if (r.employeeId === employeeId) n += 1;
+    return n;
+  };
+  const employee = candidates
+    .slice()
+    .sort((a, b) => recordCount(b.id) - recordCount(a.id))[0];
 
   // Effective role = the strongest of the account role and the team (employee)
   // role, so an owner can assign roles to anyone on the team without them

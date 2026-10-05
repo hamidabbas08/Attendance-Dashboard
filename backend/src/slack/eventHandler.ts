@@ -65,15 +65,21 @@ async function resolveEmployee(
     botToken && process.env.NODE_ENV !== 'test' ? await fetchSlackUser(botToken, slackUserId) : null;
   const roster = repo.listEmployees();
 
-  const match =
-    (profile?.name
-      ? roster.find((e) => !e.slackUserId && e.name.toLowerCase() === profile.name!.toLowerCase())
-      : undefined) ??
-    (profile?.email
-      ? roster.find((e) => !e.slackUserId && e.email && e.email.toLowerCase() === profile.email!.toLowerCase())
-      : undefined);
+  // Match an existing employee by email or name — even if they already have a
+  // (now-stale) Slack id — so a person who switched Slack accounts links back to
+  // their original record instead of spawning a duplicate. Prefer the record
+  // that already holds attendance history.
+  const matches = roster.filter(
+    (e) =>
+      (!!profile?.email && !!e.email && e.email.toLowerCase() === profile.email!.toLowerCase()) ||
+      (!!profile?.name && e.name.toLowerCase() === profile.name!.toLowerCase()),
+  );
+  const match = matches.sort(
+    (a, b) => repo.listAttendance({ employeeId: b.id }).length - repo.listAttendance({ employeeId: a.id }).length,
+  )[0];
 
   if (match) {
+    // Heal the mapping: point the original record at the current Slack id.
     return repo.updateEmployee(match.id, {
       slackUserId,
       email: match.email || profile?.email || '',

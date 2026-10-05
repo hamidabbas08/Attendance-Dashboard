@@ -41,6 +41,10 @@ function shiftHoursFor(date: string): number {
   return date >= NEW_SHIFT_FROM ? 9 : 12;
 }
 
+// Overtime is only applied from this date onward; earlier days show worked hours
+// but never accrue overtime.
+const OVERTIME_FROM = '2026-10-05';
+
 function pad(n: number) {
   return String(n).padStart(2, '0');
 }
@@ -57,6 +61,7 @@ function elapsedHours(checkIn: string, checkOut: string): number {
 }
 function overtimeOf(date: string, checkIn: string | null, checkOut: string | null): number {
   if (!checkIn || !checkOut) return 0;
+  if (date < OVERTIME_FROM) return 0; // overtime only applies from the cutoff onward
   return Math.max(0, elapsedHours(checkIn, checkOut) - shiftHoursFor(date));
 }
 function fmtH(h: number): string {
@@ -240,8 +245,8 @@ function PersonalOvertime() {
           </div>
 
           <p className="text-muted text-xs mt-3">
-            Overtime = time present beyond the standard shift (9h from Oct 5, 2026; 12h before). Only days
-            with both a sign-in and a sign-out count toward worked hours and overtime.
+            Overtime applies from Oct 5, 2026 onward — time present beyond the 9h shift. Earlier days show
+            worked hours but no overtime. Only days with both a sign-in and a sign-out are counted.
           </p>
         </>
       )}
@@ -351,7 +356,7 @@ function TeamOvertime() {
                       <tr>
                         <td className="bg-panel2/30 px-4 py-3 border-b border-line" colSpan={4}>
                           <div className="text-muted text-xs mb-2">
-                            Each logged day — overtime is time beyond the shift (9h from Oct 5, 2026; 12h before).
+                            Each logged day — overtime applies from Oct 5, 2026 (time beyond the 9h shift).
                           </div>
                           <table className="w-full text-xs">
                             <thead>
@@ -395,8 +400,8 @@ function TeamOvertime() {
           </div>
 
           <p className="text-muted text-xs mt-3">
-            Overtime = time present beyond the standard shift (9h from Oct 5, 2026; 12h before). Only days
-            with both a sign-in and a sign-out count toward worked hours and overtime.
+            Overtime applies from Oct 5, 2026 onward — time present beyond the 9h shift. Earlier days show
+            worked hours but no overtime. Only days with both a sign-in and a sign-out are counted.
           </p>
         </>
       )}

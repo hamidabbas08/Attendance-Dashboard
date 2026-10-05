@@ -52,7 +52,6 @@ function Team() {
 
   const canRole = can('users:update');
   const canEdit = can('employees:update');
-  const canDelete = can('employees:delete');
 
   const loading = employees.loading && !employees.data;
   const all = employees.data ?? [];
@@ -77,8 +76,9 @@ function Team() {
       </div>
 
       <p className={`${ui.muted} text-[13px] mb-4`}>
-        People sync automatically from Slack after each login (name, email &amp; avatar). Assign anyone a
-        role — it applies when they sign in. Roles are enforced by the backend, not just the UI.
+        The team mirrors your Slack #attendance channel: members sync automatically (name, email &amp;
+        avatar), and anyone who leaves or is removed from the channel is moved to Terminated (their
+        history is kept). Assign anyone a role — it applies when they sign in and is enforced by the backend.
       </p>
 
       <div className="flex gap-2 mb-4">
@@ -109,7 +109,7 @@ function Team() {
                 <th className={ui.th}>Email</th>
                 <th className={ui.th}>Role</th>
                 <th className={ui.th}>Status</th>
-                {(canEdit || canDelete) && <th className={ui.th}>Actions</th>}
+                {canEdit && <th className={ui.th}>Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -120,7 +120,6 @@ function Team() {
                   isSelf={e.id === me?.employeeId}
                   canRole={canRole}
                   canEdit={canEdit}
-                  canDelete={canDelete}
                   onChange={() => employees.reload()}
                 />
               ))}
@@ -144,10 +143,10 @@ function Team() {
 }
 
 function TeamRow({
-  employee, isSelf, canRole, canEdit, canDelete, onChange,
+  employee, isSelf, canRole, canEdit, onChange,
 }: {
   employee: Employee; isSelf: boolean;
-  canRole: boolean; canEdit: boolean; canDelete: boolean; onChange: () => void;
+  canRole: boolean; canEdit: boolean; onChange: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(employee.name);
@@ -165,28 +164,6 @@ function TeamRow({
   async function saveEdit() {
     setBusy(true);
     try { await patch({ name, email }); setEditing(false); } catch { /* shown */ } finally { setBusy(false); }
-  }
-  async function remove() {
-    if (!confirm(`Remove ${employee.name} from the team? Their past attendance is kept.`)) return;
-    setBusy(true); setErr('');
-    try { await api(`/api/employees/${employee.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'inactive' }) }); onChange(); }
-    catch (e) { setErr((e as ApiError).message); setBusy(false); }
-  }
-  async function terminate() {
-    const today = new Date().toISOString().slice(0, 10);
-    if (!confirm(
-      `Terminate ${employee.name} as of ${today}?\n\n` +
-      `They'll drop off the Active list and won't appear in attendance after this date. ` +
-      `All their data up to today is kept.`,
-    )) return;
-    setBusy(true); setErr('');
-    try { await api(`/api/employees/${employee.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'terminated', terminatedAt: today }) }); onChange(); }
-    catch (e) { setErr((e as ApiError).message); setBusy(false); }
-  }
-  async function reactivate() {
-    setBusy(true); setErr('');
-    try { await api(`/api/employees/${employee.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'active' }) }); onChange(); }
-    catch (e) { setErr((e as ApiError).message); setBusy(false); }
   }
 
   return (
@@ -227,39 +204,16 @@ function TeamRow({
           employee.status
         )}
       </td>
-      {(canEdit || canDelete) && (
+      {canEdit && (
         <td className={ui.td}>
           <div className="flex items-center gap-2">
-            {canEdit && (editing ? (
+            {editing ? (
               <>
                 <button className={ui.btn} onClick={saveEdit} disabled={busy}>{busy ? '…' : 'Save'}</button>
                 <button className={ui.btnGhost} onClick={() => { setEditing(false); setName(employee.name); setEmail(employee.email); }}>Cancel</button>
               </>
             ) : (
               <button className={ui.btnGhost} onClick={() => setEditing(true)}>Edit</button>
-            ))}
-            {canDelete && !isSelf && !editing && employee.status === 'active' && (
-              <>
-                <button
-                  className="border border-amber-500/40 text-amber-300 rounded-lg px-3 py-2.5 hover:bg-amber-500/10 transition"
-                  onClick={terminate}
-                  disabled={busy}
-                >
-                  Terminate
-                </button>
-                <button className="border border-red-500/40 text-red-300 rounded-lg px-3 py-2.5 hover:bg-red-500/10 transition" onClick={remove} disabled={busy}>
-                  Remove
-                </button>
-              </>
-            )}
-            {canDelete && !isSelf && !editing && employee.status !== 'active' && (
-              <button
-                className="border border-emerald-500/40 text-emerald-300 rounded-lg px-3 py-2.5 hover:bg-emerald-500/10 transition"
-                onClick={reactivate}
-                disabled={busy}
-              >
-                Reactivate
-              </button>
             )}
           </div>
           {err && <div className={ui.error}>{err}</div>}

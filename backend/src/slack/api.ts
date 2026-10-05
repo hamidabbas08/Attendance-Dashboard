@@ -85,6 +85,31 @@ export async function joinChannel(token: string, channel: string): Promise<void>
   }
 }
 
+/** All member user-ids of a channel (conversations.members, paginated). */
+export async function fetchChannelMemberIds(token: string, channel: string): Promise<string[]> {
+  const out: string[] = [];
+  let cursor = '';
+  try {
+    do {
+      const url = `https://slack.com/api/conversations.members?channel=${encodeURIComponent(channel)}&limit=200${
+        cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''
+      }`;
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      const json = (await res.json()) as {
+        ok?: boolean;
+        members?: string[];
+        response_metadata?: { next_cursor?: string };
+      };
+      if (!json.ok) break;
+      out.push(...(json.members ?? []));
+      cursor = json.response_metadata?.next_cursor ?? '';
+    } while (cursor);
+  } catch {
+    /* best-effort */
+  }
+  return out;
+}
+
 /** Read a channel's messages since `oldest` (epoch seconds string). */
 export async function fetchChannelHistory(
   token: string,

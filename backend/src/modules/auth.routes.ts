@@ -60,6 +60,19 @@ authRouter.get('/slack/callback', async (req, res) => {
     }
     const identity = await exchangeCodeForIdentity(code);
     const { token } = resolveSlackLogin(identity);
+    // Populate the roster from Slack BEFORE handing control to the app, so the
+    // first page already shows names, emails and avatars. Bounded so a slow
+    // Slack API never blocks login for long.
+    if (process.env.NODE_ENV !== 'test') {
+      const ws = [...store.slackWorkspaces.values()].find((w) => w.slackTeamId === identity.teamId);
+      if (ws) {
+        const { syncWorkspaceMembers } = await import('../slack/syncMembers');
+        await Promise.race([
+          syncWorkspaceMembers(ws).catch(() => {}),
+          new Promise((resolve) => setTimeout(resolve, 8000)),
+        ]);
+      }
+    }
     redirectToFrontend(res, { token });
   } catch (err) {
     // Surface a specific reason so the login screen can explain what happened.

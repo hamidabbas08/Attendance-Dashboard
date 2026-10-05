@@ -194,14 +194,8 @@ export function resolveSlackLogin(
     user.updatedAt = store.now();
   }
 
-  // Keep the roster fresh automatically: pull the latest Slack members after a
-  // login (best-effort, non-blocking). No manual "Sync from Slack" needed.
-  if (process.env.NODE_ENV !== 'test' && botTokenForWorkspace(workspace)) {
-    void import('../slack/syncMembers')
-      .then((m) => m.syncWorkspaceMembers(workspace))
-      .catch(() => {});
-  }
-
+  // The roster is synced from Slack in the OAuth callback (awaited) so the app's
+  // first page already shows names, emails and avatars.
   return { token: issueToken(user.id), userId: user.id };
 }
 

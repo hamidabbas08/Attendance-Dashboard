@@ -96,8 +96,9 @@ function daysInRange(from: string, to: string): string[] {
 
 function cellFor(date: string, rec: Record | undefined, holidayName?: string): { t: string; cls: string } {
   const wd = new Date(`${date}T00:00:00Z`).getUTCDay();
-  // A declared company holiday marks the whole day off for everyone.
-  if (holidayName) return { t: 'H', cls: 'bg-indigo-700/50 text-indigo-200' };
+  // A declared company holiday marks the whole day off for everyone — shown the
+  // same way as a Sunday off (the holiday name is in the hover tooltip).
+  if (holidayName) return { t: 'Off', cls: 'text-muted/70' };
   if (rec) {
     switch (rec.status) {
       case 'present':
@@ -330,8 +331,8 @@ function Attendance() {
 
       <p className="text-muted text-xs mt-2">
         Legend: <b className="text-emerald-300">P</b> present (late counts as present) ·{' '}
-        <b className="text-red-400">A</b> absent · <b>Off</b> off day / Sunday &amp; Saturday (from Oct 3, 2026) ·{' '}
-        <b className="text-indigo-300">H</b> holiday · <b>L</b> leave · <b>½</b> half day · blank = not recorded.
+        <b className="text-red-400">A</b> absent · <b>Off</b> off day / Sunday &amp; Saturday (from Oct 3, 2026) / holiday ·{' '}
+        <b>L</b> leave · <b>½</b> half day · blank = not recorded.
       </p>
     </>
   );
@@ -396,9 +397,10 @@ function HolidayManager({ holidays, onChange }: { holidays: Holiday[]; onChange:
       setBusy(false);
     }
   }
-  async function remove(id: string) {
+  async function remove(h: Holiday) {
+    if (!confirm(`Remove the holiday "${h.name}" on ${h.date}?`)) return;
     try {
-      await api(`/api/holidays/${id}`, { method: 'DELETE' });
+      await api(`/api/holidays/${h.id}`, { method: 'DELETE' });
       onChange();
     } catch (err) {
       setError((err as ApiError).message);
@@ -433,20 +435,25 @@ function HolidayManager({ holidays, onChange }: { holidays: Holiday[]; onChange:
       </form>
 
       {sorted.length > 0 && (
-        <div className="flex flex-wrap gap-2 mt-4">
-          {sorted.map((h) => (
-            <span key={h.id} className="inline-flex items-center gap-2 bg-indigo-700/30 text-indigo-200 border border-indigo-500/30 rounded-lg px-3 py-1.5 text-sm">
-              <b>{h.date}</b> · {h.name}
-              <button
-                type="button"
-                className="text-indigo-300/70 hover:text-red-300"
-                title="Remove holiday"
-                onClick={() => remove(h.id)}
-              >
-                ✕
-              </button>
-            </span>
-          ))}
+        <div className="mt-4 border-t border-line/60 pt-3">
+          <div className="text-muted text-xs mb-2">Declared holidays</div>
+          <div className="flex flex-col divide-y divide-line/50">
+            {sorted.map((h) => (
+              <div key={h.id} className="flex items-center justify-between py-2">
+                <div className="text-sm">
+                  <span className="font-semibold">{h.date}</span>
+                  <span className="text-muted"> · {h.name}</span>
+                </div>
+                <button
+                  type="button"
+                  className="text-xs text-muted hover:text-red-300"
+                  onClick={() => remove(h)}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

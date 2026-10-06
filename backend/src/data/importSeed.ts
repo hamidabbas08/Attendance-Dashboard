@@ -30,13 +30,10 @@ export function ensureCompanyShifts(companyId: string): { dayShiftId: string; ni
 
   function ensure(name: string, startTime: string, endTime: string): string {
     const hit = find(name);
-    if (hit) {
-      // Keep the canonical timings in sync if an older/placeholder copy exists.
-      if (hit.startTime !== startTime || hit.endTime !== endTime) {
-        store.shifts.set(hit.id, { ...hit, startTime, endTime, updatedAt: now });
-      }
-      return hit.id;
-    }
+    // Only ever CREATE a missing shift — never overwrite an existing one's times.
+    // HR/owners edit shift hours in the app, and this runs on every login/sync;
+    // resetting the times here would silently revert their changes.
+    if (hit) return hit.id;
     const id = store.id();
     store.shifts.set(id, {
       id,

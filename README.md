@@ -90,9 +90,19 @@ two demo tenants (Acme, Globex) plus a platform admin. Demo logins (password
 | `hr@acme.test` | HR Manager |
 | `employee@acme.test` | Employee |
 
-For production, set `DATA_ADAPTER=prisma`, point `DATABASE_URL` at PostgreSQL, and
-run `pnpm prisma:migrate` in `backend/`. The Prisma schema in
-`backend/prisma/schema.prisma` is the authoritative production data model.
+### Persisting data across redeploys
+
+Set **`DATABASE_URL`** to a Postgres connection string and the app saves its
+whole state to Postgres (a single JSONB snapshot) and restores it on boot — so
+shift times, role assignments, declared holidays, attendance edits and Slack
+links all survive redeploys. With no `DATABASE_URL` the app runs fully in-memory
+and resets on restart. A free managed Postgres (Neon, Supabase, Render) is
+enough; SSL is handled automatically. No migrations are needed — the snapshot
+table is created on first boot.
+
+The `backend/prisma/schema.prisma` file remains the authoritative relational
+data model for a future full Prisma adapter (`DATA_ADAPTER=prisma`), but is not
+required for the snapshot persistence above.
 
 ### Frontend (Next.js)
 

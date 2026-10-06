@@ -13,6 +13,10 @@ export const config = {
   jwtSecret: required('JWT_SECRET', 'dev-insecure-secret-change-me'),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '8h',
   dataAdapter: (process.env.DATA_ADAPTER ?? 'memory') as 'memory' | 'prisma',
+  // Optional Postgres connection. When set, the in-memory store is snapshotted
+  // to Postgres and restored on boot, so every change (shifts, roles, holidays,
+  // attendance, Slack links) survives redeploys. Unset = pure in-memory.
+  databaseUrl: process.env.DATABASE_URL ?? '',
   slackSigningSecret: process.env.SLACK_SIGNING_SECRET ?? 'dev-slack-secret',
   // Slack "Sign in with Slack" (OpenID Connect) credentials.
   slackClientId: process.env.SLACK_CLIENT_ID ?? '',

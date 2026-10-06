@@ -1,11 +1,16 @@
 import { createApp } from './app';
 import { config } from './config/env';
+import { loadSnapshot, persistenceEnabled, saveSnapshot, startAutosave } from './data/persistence';
 import { seedDatabase } from './data/seed';
 import { store } from './data/store';
 
 async function main(): Promise<void> {
-  // In the memory adapter, seed demo tenants so the API is usable immediately.
-  if (config.dataAdapter === 'memory') {
+  // With a Postgres DATABASE_URL set, restore the saved snapshot so everything
+  // (shifts, roles, holidays, attendance, Slack links) survives redeploys.
+  const restored = await loadSnapshot(store);
+
+  // Seed demo tenants only when there is nothing to restore (first boot / no DB).
+  if (!restored && config.dataAdapter === 'memory') {
     const seed = await seedDatabase(store);
     // Preview the imported spreadsheet attendance under the demo company too.
     if (config.importAttendance) {
@@ -19,6 +24,17 @@ async function main(): Promise<void> {
       `Seeded demo data. Login with e.g. owner@acme.test / ${seed.password} (company A) ` +
         `or admin@platform.test / ${seed.password} (platform admin).`,
     );
+  }
+
+  // Persist the current state and keep autosaving every few seconds + on exit.
+  if (persistenceEnabled) {
+    await saveSnapshot(store);
+    startAutosave(store);
+    // eslint-disable-next-line no-console
+    console.log('Persistence on: snapshotting the store to Postgres.');
+  } else {
+    // eslint-disable-next-line no-console
+    console.log('Persistence off: set DATABASE_URL to keep data across redeploys.');
   }
 
   const app = createApp();

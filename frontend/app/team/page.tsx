@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { api, ApiError } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
-import { Avatar, Guard, TableSkeleton } from '../../lib/components';
+import { Avatar, EmptyState, Guard, PageHeader, SectionCard, SegTabs, StatusBadge, TableSkeleton } from '../../lib/components';
 import { P } from '../../lib/permissions';
 import { ui } from '../../lib/ui';
 import { useFetch } from '../../lib/useFetch';
@@ -69,75 +69,57 @@ function Team() {
 
   return (
     <>
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
-        <div>
-          <h2 className={ui.h2}>Team</h2>
-          <p className={ui.subtitle}>Manage people, roles and access</p>
-        </div>
-      </div>
-
-      <p className={`${ui.muted} text-[13px] mb-4`}>
-        The team mirrors your Slack #attendance channel: members sync automatically (name, email &amp;
-        avatar), and anyone who leaves or is removed from the channel is moved to Terminated (their
-        history is kept). Assign anyone a role — it applies when they sign in and is enforced by the backend.
-      </p>
-
-      <div className="flex gap-2 mb-4">
-        {FILTERS.map((f) => (
-          <button
-            key={f.value}
-            type="button"
-            onClick={() => setFilter(f.value)}
-            className={`px-3.5 py-1.5 rounded-lg text-sm border transition ${
-              filter === f.value
-                ? 'bg-accent text-ink border-transparent font-semibold'
-                : 'border-line text-muted hover:bg-panel2'
-            }`}
-          >
-            {f.label} <span className="opacity-70">({counts[f.value]})</span>
-          </button>
-        ))}
-      </div>
+      <PageHeader
+        title="Team"
+        description="Manage people, roles and access. The roster mirrors your Slack #attendance channel."
+        actions={
+          <SegTabs
+            value={filter}
+            onChange={setFilter}
+            options={FILTERS.map((f) => ({ value: f.value, label: <>{f.label} <span className="opacity-60">· {counts[f.value]}</span></> }))}
+          />
+        }
+      />
 
       {loading ? (
         <TableSkeleton rows={8} cols={5} />
       ) : (
-        <div className="surface p-5 overflow-x-auto">
-          <table className={ui.table}>
-            <thead>
-              <tr>
-                <th className={ui.th}>Name</th>
-                <th className={ui.th}>Email</th>
-                <th className={ui.th}>Role</th>
-                <th className={ui.th}>Status</th>
-                {canEdit && <th className={ui.th}>Actions</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {roster.map((e) => (
-                <TeamRow
-                  key={e.id}
-                  employee={e}
-                  isSelf={e.id === me?.employeeId}
-                  canRole={canRole}
-                  canEdit={canEdit}
-                  onChange={() => employees.reload()}
-                />
-              ))}
-              {roster.length === 0 && (
-                <tr>
-                  <td className={`${ui.td} text-muted`} colSpan={5}>
-                    {filter === 'terminated'
-                      ? 'No terminated members.'
-                      : filter === 'active'
-                        ? 'No active team members yet — they sync from Slack after login.'
-                        : 'No team members yet — they sync from Slack after login.'}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <SectionCard bodyClassName="!p-0">
+          {roster.length === 0 ? (
+            <EmptyState
+              title={filter === 'terminated' ? 'No terminated members' : 'No team members yet'}
+              description={filter === 'terminated'
+                ? 'Members who leave the Slack channel will appear here, with their history preserved.'
+                : 'Team members sync automatically from your Slack #attendance channel after they sign in.'}
+            />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className={ui.table}>
+                <thead>
+                  <tr>
+                    <th className={ui.th}>Name</th>
+                    <th className={ui.th}>Email</th>
+                    <th className={ui.th}>Role</th>
+                    <th className={ui.th}>Status</th>
+                    {canEdit && <th className={`${ui.th} text-right`}>Actions</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {roster.map((e) => (
+                    <TeamRow
+                      key={e.id}
+                      employee={e}
+                      isSelf={e.id === me?.employeeId}
+                      canRole={canRole}
+                      canEdit={canEdit}
+                      onChange={() => employees.reload()}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </SectionCard>
       )}
     </>
   );
@@ -168,23 +150,23 @@ function TeamRow({
   }
 
   return (
-    <tr>
+    <tr className="transition-colors duration-150 hover:bg-white/[0.025]">
       <td className={`${ui.td} whitespace-nowrap`}>
         <div className="flex items-center gap-2.5">
-          <Avatar src={employee.avatarUrl} name={employee.name} size={30} />
+          <Avatar src={employee.avatarUrl} name={employee.name} size={32} />
           {editing ? (
             <input className={`${ui.input} !w-44`} value={name} onChange={(e) => setName(e.target.value)} />
           ) : (
-            <span>
-              <Link href={`/employee/${employee.id}`} className="hover:underline hover:text-accent">
+            <span className="font-medium">
+              <Link href={`/employee/${employee.id}`} className="hover:text-accent transition-colors duration-150">
                 {employee.name}
               </Link>
-              {isSelf && <span className="text-muted"> (you)</span>}
+              {isSelf && <span className="text-faint font-normal"> (you)</span>}
             </span>
           )}
         </div>
       </td>
-      <td className={ui.td}>
+      <td className={`${ui.td} text-muted`}>
         {editing ? <input className={`${ui.input} !w-56`} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email" /> : (employee.email || '—')}
       </td>
       <td className={ui.td}>
@@ -200,26 +182,26 @@ function TeamRow({
       </td>
       <td className={ui.td}>
         {employee.status === 'terminated' ? (
-          <span className="text-red-300">
-            terminated{employee.terminatedAt ? ` · ${employee.terminatedAt}` : ''}
+          <span title={employee.terminatedAt ? `Since ${employee.terminatedAt}` : undefined}>
+            <StatusBadge status="absent" label="Terminated" />
           </span>
         ) : (
-          employee.status
+          <StatusBadge status="present" label="Active" />
         )}
       </td>
       {canEdit && (
-        <td className={ui.td}>
-          <div className="flex items-center gap-2">
+        <td className={`${ui.td} text-right`}>
+          <div className="flex items-center justify-end gap-2">
             {editing ? (
               <>
-                <button className={ui.btn} onClick={saveEdit} disabled={busy}>{busy ? '…' : 'Save'}</button>
-                <button className={ui.btnGhost} onClick={() => { setEditing(false); setName(employee.name); setEmail(employee.email); }}>Cancel</button>
+                <button className={`${ui.btn} !py-1.5 !px-3`} onClick={saveEdit} disabled={busy}>{busy ? '…' : 'Save'}</button>
+                <button className={`${ui.btnGhost} !py-1.5 !px-3`} onClick={() => { setEditing(false); setName(employee.name); setEmail(employee.email); }}>Cancel</button>
               </>
             ) : (
-              <button className={ui.btnGhost} onClick={() => setEditing(true)}>Edit</button>
+              <button className={`${ui.btnSecondary} !py-1.5 !px-3`} onClick={() => setEditing(true)}>Edit</button>
             )}
           </div>
-          {err && <div className={ui.error}>{err}</div>}
+          {err && <div className={`${ui.error} text-right`}>{err}</div>}
         </td>
       )}
     </tr>

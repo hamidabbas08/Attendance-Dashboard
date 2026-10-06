@@ -5,10 +5,10 @@
 @layer base {
   body {
     @apply text-fg;
-    background-color: #0b1220;
+    background-color: #080f1c;
     background-image:
-      radial-gradient(1100px 600px at 100% -8%, rgba(56, 189, 248, 0.07), transparent 60%),
-      radial-gradient(900px 560px at -10% 110%, rgba(52, 211, 153, 0.05), transparent 55%);
+      radial-gradient(1100px 600px at 100% -10%, rgba(56, 189, 248, 0.06), transparent 60%),
+      radial-gradient(900px 560px at -10% 110%, rgba(167, 139, 250, 0.05), transparent 55%);
     background-attachment: fixed;
     min-height: 100vh;
     font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
@@ -19,8 +19,8 @@
     @apply text-accent no-underline;
   }
   ::-webkit-scrollbar { height: 10px; width: 10px; }
-  ::-webkit-scrollbar-thumb { background: #2b3a52; border-radius: 999px; }
-  ::-webkit-scrollbar-thumb:hover { background: #374a67; }
+  ::-webkit-scrollbar-thumb { background: #243247; border-radius: 999px; }
+  ::-webkit-scrollbar-thumb:hover { background: #32425c; }
   ::-webkit-scrollbar-track { background: transparent; }
 
   /* Visible, consistent keyboard focus across interactive elements. */
@@ -30,41 +30,48 @@
     border-radius: 8px;
   }
 
-  /* Make the native date/time picker icons visible (white) on the dark theme. */
+  /* Native date/time picker icons visible (white) on the dark theme. */
   input[type="time"]::-webkit-calendar-picker-indicator,
   input[type="date"]::-webkit-calendar-picker-indicator {
     filter: invert(1);
-    opacity: 0.75;
+    opacity: 0.7;
     cursor: pointer;
   }
   input[type="time"]::-webkit-calendar-picker-indicator:hover,
   input[type="date"]::-webkit-calendar-picker-indicator:hover {
     opacity: 1;
   }
+  /* Tidy native checkboxes to the accent color. */
+  input[type="checkbox"] { accent-color: #38bdf8; }
 }
 
 @layer components {
-  /* Card / panel surface — subtle border + soft depth, no heavy glass. */
+  /* Card / panel surface — subtle border + soft depth. */
   .surface {
     @apply bg-panel border border-line rounded-2xl;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 30px -18px rgba(0, 0, 0, 0.55);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px -20px rgba(0, 0, 0, 0.65);
+  }
+  /* Elevated inset surface (e.g. nested panels, popovers). */
+  .surface-2 {
+    @apply bg-panel2 border border-line rounded-xl;
   }
   /* Opt-in hover elevation for interactive cards. */
   .surface-hover {
     @apply transition-colors;
   }
   .surface-hover:hover {
-    @apply border-line;
-    background-color: #1b2840;
+    border-color: #2b3c57;
+    background-color: #142238;
   }
 
   /* Status pills — compact, legible, with a soft ring for definition. */
   .pill {
-    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize;
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium capitalize;
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
   }
   .pill-present, .pill-off_day { @apply bg-emerald-500/15 text-emerald-300; }
   .pill-late, .pill-half_day { @apply bg-amber-500/15 text-amber-300; }
-  .pill-absent { @apply bg-red-500/20 text-red-300; }
-  .pill-leave, .pill-holiday { @apply bg-blue-500/15 text-blue-300; }
+  .pill-absent { @apply bg-red-500/15 text-red-300; }
+  .pill-leave { @apply bg-sky-500/15 text-sky-300; }
+  .pill-holiday { @apply bg-violet-500/15 text-violet-300; }
 }

@@ -11,25 +11,34 @@ export function Login() {
   const authError = useAuthStore((s) => s.authError);
 
   return (
-    <div className="max-w-sm mx-auto mt-24 text-center">
-      <div className="font-bold text-2xl mb-1">Attendance SaaS</div>
-      <p className={`${ui.muted} mb-6`}>Sign in with your company Slack workspace.</p>
+    <div className="min-h-screen grid place-items-center px-4">
+      <div className="w-full max-w-[400px]">
+        <div className="flex flex-col items-center text-center mb-6">
+          <span className="grid h-12 w-12 place-items-center rounded-2xl bg-accent/12 text-accent text-xl ring-1 ring-accent/25 mb-4">🕐</span>
+          <h1 className="font-bold text-2xl tracking-tight">Attendance</h1>
+          <p className={`${ui.muted} mt-1`}>Sign in with your company Slack workspace.</p>
+        </div>
 
-      <div className={ui.card}>
-        <a
-          href={SLACK_LOGIN_URL}
-          className="flex items-center justify-center gap-3 bg-white text-[#1d1c1d] font-semibold rounded-lg px-4 py-3 hover:opacity-90"
-        >
-          <SlackMark />
-          Sign in with Slack
-        </a>
-        {authError && <div className={`${ui.error} text-center`}>{authError}</div>}
+        <div className="surface p-6">
+          <a
+            href={SLACK_LOGIN_URL}
+            className="flex items-center justify-center gap-3 bg-white text-[#1d1c1d] font-semibold rounded-lg px-4 py-3 transition hover:opacity-90 active:translate-y-px"
+          >
+            <SlackMark />
+            Sign in with Slack
+          </a>
+          {authError && (
+            <div className="mt-4 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2.5 text-sm text-red-300 text-center">
+              {authError}
+            </div>
+          )}
+        </div>
+
+        <p className={`${ui.muted} text-[13px] text-center mt-5 leading-relaxed`}>
+          Access is scoped to the company linked to your Slack workspace. If your
+          workspace isn&apos;t connected yet, ask your company owner to link it.
+        </p>
       </div>
-
-      <p className={`${ui.muted} text-[13px]`}>
-        Access is scoped to the company linked to your Slack workspace. If your
-        workspace isn&apos;t connected yet, ask your company owner to link it.
-      </p>
     </div>
   );
 }

@@ -5,7 +5,140 @@ import { useAuth } from './auth';
 import { pillClass, STATUS_META, ui } from './ui';
 
 export function StatusPill({ status }: { status: string }) {
-  return <span className={pillClass(status)}>{status.replace('_', ' ')}</span>;
+  return (
+    <span className={pillClass(status)}>
+      <span className="h-1.5 w-1.5 rounded-full bg-current opacity-80" />
+      {status.replace('_', ' ')}
+    </span>
+  );
+}
+
+/** Consistent page header: title, optional description, right-aligned actions. */
+export function PageHeader({
+  title,
+  description,
+  actions,
+}: {
+  title: string;
+  description?: string;
+  actions?: ReactNode;
+}) {
+  return (
+    <header className="flex flex-wrap items-start justify-between gap-4 mb-6">
+      <div className="min-w-0">
+        <h1 className={ui.h2}>{title}</h1>
+        {description && <p className={ui.subtitle}>{description}</p>}
+      </div>
+      {actions && <div className="flex flex-wrap items-end gap-2.5">{actions}</div>}
+    </header>
+  );
+}
+
+/** A titled content card with an optional header row and actions. */
+export function SectionCard({
+  title,
+  subtitle,
+  actions,
+  children,
+  className = '',
+  bodyClassName = '',
+}: {
+  title?: ReactNode;
+  subtitle?: ReactNode;
+  actions?: ReactNode;
+  children: ReactNode;
+  className?: string;
+  bodyClassName?: string;
+}) {
+  return (
+    <section className={`surface ${className}`}>
+      {(title || actions) && (
+        <div className="flex items-center justify-between gap-3 px-5 sm:px-6 py-4 border-b border-line/70">
+          <div className="min-w-0">
+            {title && <h3 className={ui.h3}>{title}</h3>}
+            {subtitle && <p className="text-xs text-muted mt-0.5">{subtitle}</p>}
+          </div>
+          {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
+        </div>
+      )}
+      <div className={`p-5 sm:p-6 ${bodyClassName}`}>{children}</div>
+    </section>
+  );
+}
+
+/** A colored status badge (dot + label) driven by the shared status palette. */
+export function StatusBadge({ status, label }: { status: string; label?: string }) {
+  const meta = STATUS_META[status];
+  const text = label ?? meta?.label ?? status.replace('_', ' ');
+  const hex = meta?.hex ?? '#94a3b8';
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium"
+      style={{ background: `${hex}1f`, color: hex, boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.06)' }}
+    >
+      <span className="h-1.5 w-1.5 rounded-full" style={{ background: hex }} />
+      {text}
+    </span>
+  );
+}
+
+/** A polished empty state: icon, heading, description, optional action. */
+export function EmptyState({
+  icon,
+  title,
+  description,
+  action,
+  className = '',
+}: {
+  icon?: ReactNode;
+  title: string;
+  description?: string;
+  action?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`flex flex-col items-center justify-center text-center py-12 px-6 ${className}`}>
+      <div className="mb-3 grid h-11 w-11 place-items-center rounded-xl bg-panel2 text-muted ring-1 ring-line">
+        {icon ?? (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-5 w-5">
+            <circle cx="11" cy="11" r="7" /><path d="m20 20-3-3" strokeLinecap="round" />
+          </svg>
+        )}
+      </div>
+      <div className="font-semibold">{title}</div>
+      {description && <p className="text-sm text-muted mt-1 max-w-sm">{description}</p>}
+      {action && <div className="mt-4">{action}</div>}
+    </div>
+  );
+}
+
+/** A compact segmented control (used for filter tabs). */
+export function SegTabs<T extends string>({
+  value,
+  onChange,
+  options,
+}: {
+  value: T;
+  onChange: (v: T) => void;
+  options: { value: T; label: ReactNode }[];
+}) {
+  return (
+    <div className="inline-flex items-center gap-1 rounded-xl border border-line bg-panel2 p-1">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          onClick={() => onChange(o.value)}
+          aria-pressed={value === o.value}
+          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors duration-150 ${
+            value === o.value ? 'bg-accent text-ink shadow-sm' : 'text-muted hover:text-fg hover:bg-white/[0.05]'
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 function initials(name: string): string {

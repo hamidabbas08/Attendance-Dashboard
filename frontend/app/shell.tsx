@@ -13,6 +13,7 @@ interface Item {
   label: string;
   perm?: string;
   icon: ReactNode;
+  group: string;
 }
 
 // Minimal inline icons (stroke, currentColor) so nav items are easier to scan.
@@ -33,15 +34,16 @@ const icons = {
 // Nav items are permission-gated — UI convenience ONLY. The backend still
 // authorizes every request regardless of what is shown here.
 const ITEMS: Item[] = [
-  { href: '/', label: 'Dashboard', icon: icons.dashboard },
-  { href: '/my-attendance', label: 'My Attendance', perm: P.ATTENDANCE_VIEW_OWN, icon: icons.myAttendance },
-  { href: '/my-profile', label: 'My Profile', icon: icons.profile },
-  { href: '/attendance', label: 'Attendance', perm: P.ATTENDANCE_VIEW_ALL, icon: icons.attendance },
-  { href: '/overtime', label: 'Overtime', perm: P.ATTENDANCE_VIEW_OWN, icon: icons.overtime },
-  { href: '/team', label: 'Team', perm: P.USERS_VIEW, icon: icons.team },
-  { href: '/shifts', label: 'Shifts', perm: P.SHIFTS_VIEW, icon: icons.shifts },
-  { href: '/reports', label: 'Reports', perm: P.REPORTS_VIEW, icon: icons.reports },
+  { href: '/', label: 'Overview', icon: icons.dashboard, group: 'Attendance' },
+  { href: '/my-attendance', label: 'My Attendance', perm: P.ATTENDANCE_VIEW_OWN, icon: icons.myAttendance, group: 'Attendance' },
+  { href: '/my-profile', label: 'My Profile', icon: icons.profile, group: 'Attendance' },
+  { href: '/attendance', label: 'Attendance', perm: P.ATTENDANCE_VIEW_ALL, icon: icons.attendance, group: 'Workforce' },
+  { href: '/overtime', label: 'Overtime', perm: P.ATTENDANCE_VIEW_OWN, icon: icons.overtime, group: 'Workforce' },
+  { href: '/team', label: 'Team', perm: P.USERS_VIEW, icon: icons.team, group: 'Workforce' },
+  { href: '/shifts', label: 'Shifts', perm: P.SHIFTS_VIEW, icon: icons.shifts, group: 'Workforce' },
+  { href: '/reports', label: 'Reports', perm: P.REPORTS_VIEW, icon: icons.reports, group: 'Analytics' },
 ];
+const GROUP_ORDER = ['Attendance', 'Workforce', 'Analytics'];
 
 export function Shell({ children }: { children: ReactNode }) {
   const { me, can, logout } = useAuth();
@@ -49,6 +51,24 @@ export function Shell({ children }: { children: ReactNode }) {
   const meInfo = useFetch<{ employee: { avatarUrl: string | null } | null }>('/api/employees/me');
   const avatarUrl = meInfo.data?.employee?.avatarUrl ?? null;
   const roleText = me?.isPlatformAdmin ? 'Platform Admin' : me?.roles.join(', ');
+  const visible = ITEMS.filter((i) => !i.perm || can(i.perm));
+
+  const NavLink = ({ i }: { i: Item }) => {
+    const active = pathname === i.href;
+    return (
+      <Link
+        href={i.href}
+        aria-current={active ? 'page' : undefined}
+        className={`group relative flex items-center gap-2.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-150 ${
+          active ? 'bg-accent/10 text-accent' : 'text-muted hover:text-fg hover:bg-white/[0.04]'
+        }`}
+      >
+        {active && <span className="absolute left-0 top-1/2 hidden md:block h-5 w-0.5 -translate-y-1/2 rounded-full bg-accent" />}
+        <span className={active ? 'text-accent' : 'text-faint group-hover:text-fg transition-colors duration-150'}>{i.icon}</span>
+        {i.label}
+      </Link>
+    );
+  };
 
   return (
     <div className="min-h-screen md:grid md:grid-cols-[248px_1fr]">
@@ -59,26 +79,21 @@ export function Shell({ children }: { children: ReactNode }) {
           <span className="font-bold text-[15px] tracking-tight">Attendance</span>
         </div>
 
-        {/* Nav — horizontal scroll on mobile, vertical list on desktop */}
-        <nav className="flex md:flex-col gap-1 px-3 pb-3 md:pb-2 overflow-x-auto md:overflow-y-auto md:flex-1">
-          {ITEMS.filter((i) => !i.perm || can(i.perm)).map((i) => {
-            const active = pathname === i.href;
+        {/* Mobile: single horizontally-scrollable row. */}
+        <nav className="flex md:hidden gap-1 px-3 pb-3 overflow-x-auto">
+          {visible.map((i) => <NavLink key={i.href} i={i} />)}
+        </nav>
+
+        {/* Desktop: grouped vertical navigation. */}
+        <nav className="hidden md:flex md:flex-col gap-0.5 px-3 pb-2 overflow-y-auto flex-1">
+          {GROUP_ORDER.map((g) => {
+            const items = visible.filter((i) => i.group === g);
+            if (items.length === 0) return null;
             return (
-              <Link
-                key={i.href}
-                href={i.href}
-                aria-current={active ? 'page' : undefined}
-                className={`group flex items-center gap-2.5 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-150 ${
-                  active
-                    ? 'bg-accent/10 text-accent ring-1 ring-accent/20'
-                    : 'text-muted hover:text-fg hover:bg-white/[0.04]'
-                }`}
-              >
-                <span className={active ? 'text-accent' : 'text-muted group-hover:text-fg transition-colors duration-150'}>
-                  {i.icon}
-                </span>
-                {i.label}
-              </Link>
+              <div key={g} className="mb-2">
+                <div className="px-3 pt-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-faint/80">{g}</div>
+                {items.map((i) => <NavLink key={i.href} i={i} />)}
+              </div>
             );
           })}
         </nav>

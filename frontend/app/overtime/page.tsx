@@ -3,7 +3,7 @@
 import { Fragment, useMemo, useState } from 'react';
 import { api, ApiError } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
-import { Avatar, Guard, StatTile, TableSkeleton, TilesSkeleton } from '../../lib/components';
+import { Avatar, EmptyState, Guard, PageHeader, SectionCard, StatTile, TableSkeleton, TilesSkeleton } from '../../lib/components';
 import { P } from '../../lib/permissions';
 import { to12h, ui } from '../../lib/ui';
 import { useFetch } from '../../lib/useFetch';
@@ -195,16 +195,21 @@ function rangeFor(year: number, month: number | 'all') {
 
 function ShiftBanner({ shift }: { shift: Shift | null }) {
   return (
-    <div className="surface p-4 mb-5 flex items-center gap-3 flex-wrap">
-      <span className="text-muted text-sm">Your shift:</span>
-      {shift ? (
-        <span className="font-semibold">
-          {to12h(shift.startTime)} – {to12h(shift.endTime)}
-          <span className="text-muted font-normal"> · {shift.graceMins}m grace{shift.name ? ` · ${shift.name}` : ''}</span>
-        </span>
-      ) : (
-        <span className="text-muted">Not set yet — your HR/owner can assign a shift on the Shifts page.</span>
-      )}
+    <div className="surface px-5 py-4 mb-5 flex items-center gap-3 flex-wrap">
+      <span className="grid h-9 w-9 place-items-center rounded-lg bg-accent/12 text-accent ring-1 ring-accent/20 shrink-0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px]"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+      </span>
+      <div>
+        <div className="text-[11px] uppercase tracking-wider text-faint font-semibold">Your shift</div>
+        {shift ? (
+          <div className="font-semibold">
+            {to12h(shift.startTime)} – {to12h(shift.endTime)}
+            <span className="text-muted font-normal"> · {shift.graceMins}m grace{shift.name ? ` · ${shift.name}` : ''}</span>
+          </div>
+        ) : (
+          <div className="text-muted">Not set yet — your HR/owner can assign a shift on the Shifts page.</div>
+        )}
+      </div>
     </div>
   );
 }
@@ -236,13 +241,11 @@ function PersonalOvertime() {
 
   return (
     <>
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
-        <div>
-          <h2 className={ui.h2}>My Overtime</h2>
-          <p className={ui.subtitle}>Your hours beyond the standard shift</p>
-        </div>
-        <PeriodControls year={year} setYear={setYear} month={month} setMonth={setMonth} curYear={curYear} />
-      </div>
+      <PageHeader
+        title="My Overtime"
+        description="Your hours worked beyond the standard shift."
+        actions={<PeriodControls year={year} setYear={setYear} month={month} setMonth={setMonth} curYear={curYear} />}
+      />
 
       <ShiftBanner shift={meInfo.data?.shift ?? null} />
 
@@ -259,39 +262,38 @@ function PersonalOvertime() {
             <StatTile label="Total worked" value={fmtH(totalWorked)} accent="#a78bfa" />
           </div>
 
-          <div className="surface p-5 overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-muted">
-                  <th className="text-left font-medium py-2">Date</th>
-                  <th className="text-left font-medium py-2">Sign in</th>
-                  <th className="text-left font-medium py-2">Sign out</th>
-                  <th className="text-left font-medium py-2">Worked</th>
-                  <th className="text-left font-medium py-2">Overtime</th>
-                </tr>
-              </thead>
-              <tbody>
-                {days.map((d) => (
-                  <tr key={d.date} className="border-t border-line/60">
-                    <td className="py-1.5">{d.date}</td>
-                    <td className="py-1.5">{d.checkIn ? to12h(d.checkIn) : '—'}</td>
-                    <td className="py-1.5">{d.checkOut ? to12h(d.checkOut) : '—'}</td>
-                    <td className="py-1.5">{d.worked != null ? fmtDur(d.worked) : '—'}</td>
-                    <td className={`py-1.5 ${d.ot > 0 ? 'text-amber-300 font-semibold' : 'text-muted'}`}>
-                      {d.ot > 0 ? `+${fmtDur(d.ot)}` : '—'}
-                    </td>
-                  </tr>
-                ))}
-                {days.length === 0 && (
+          <SectionCard title={`Daily overtime · ${period}`} bodyClassName="!p-0">
+            {days.length === 0 ? (
+              <EmptyState title="No attendance recorded" description={`Nothing logged for ${period}. Your days fill in as you sign in and out in Slack.`} />
+            ) : (
+            <div className="overflow-x-auto">
+              <table className={ui.table}>
+                <thead>
                   <tr>
-                    <td className="py-3 text-muted" colSpan={5}>
-                      No attendance recorded for {period}.
-                    </td>
+                    <th className={ui.th}>Date</th>
+                    <th className={ui.th}>Sign in</th>
+                    <th className={ui.th}>Sign out</th>
+                    <th className={`${ui.th} text-right`}>Worked</th>
+                    <th className={`${ui.th} text-right`}>Overtime</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {days.map((d) => (
+                    <tr key={d.date} className="transition-colors duration-150 hover:bg-white/[0.025]">
+                      <td className={`${ui.td} font-medium tabular-nums`}>{d.date}</td>
+                      <td className={`${ui.td} tabular-nums`}>{d.checkIn ? to12h(d.checkIn) : '—'}</td>
+                      <td className={`${ui.td} tabular-nums`}>{d.checkOut ? to12h(d.checkOut) : '—'}</td>
+                      <td className={`${ui.td} text-right tabular-nums`}>{d.worked != null ? fmtDur(d.worked) : '—'}</td>
+                      <td className={`${ui.td} text-right tabular-nums ${d.ot > 0 ? 'text-amber-300 font-semibold' : 'text-muted'}`}>
+                        {d.ot > 0 ? `+${fmtDur(d.ot)}` : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            )}
+          </SectionCard>
 
           <p className="text-muted text-xs mt-3">
             Overtime applies from Oct 5, 2026 onward — time worked beyond the person&apos;s assigned shift
@@ -348,13 +350,11 @@ function TeamOvertime() {
 
   return (
     <>
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
-        <div>
-          <h2 className={ui.h2}>Overtime</h2>
-          <p className={ui.subtitle}>Hours worked beyond the standard shift</p>
-        </div>
-        <PeriodControls year={year} setYear={setYear} month={month} setMonth={setMonth} curYear={curYear} />
-      </div>
+      <PageHeader
+        title="Overtime"
+        description="Hours worked beyond each person's assigned shift."
+        actions={<PeriodControls year={year} setYear={setYear} month={month} setMonth={setMonth} curYear={curYear} />}
+      />
 
       {loading ? (
         <>
@@ -373,13 +373,14 @@ function TeamOvertime() {
             />
           </div>
 
-          <div className="surface p-5 overflow-x-auto">
+          <SectionCard title={`Overtime by employee · ${period}`} bodyClassName="!p-0">
+          <div className="overflow-x-auto">
             <table className={ui.table}>
               <thead>
                 <tr>
                   <th className={ui.th}>Employee</th>
-                  <th className={ui.th}>Days logged</th>
-                  <th className={ui.th}>Total worked</th>
+                  <th className={`${ui.th} text-right`}>Days logged</th>
+                  <th className={`${ui.th} text-right`}>Total worked</th>
                   <th className={ui.th}>Overtime</th>
                 </tr>
               </thead>
@@ -387,18 +388,18 @@ function TeamOvertime() {
                 {rows.map((r) => (
                   <Fragment key={r.employee.id}>
                     <tr
-                      className="cursor-pointer hover:bg-panel2/50"
+                      className="cursor-pointer transition-colors duration-150 hover:bg-white/[0.03]"
                       onClick={() => setOpen(open === r.employee.id ? null : r.employee.id)}
                     >
                       <td className={`${ui.td} whitespace-nowrap`}>
-                        <div className="flex items-center gap-2">
-                          <span className="text-muted">{open === r.employee.id ? '▾' : '▸'}</span>
-                          <Avatar src={r.employee.avatarUrl} name={r.employee.name} size={26} />
-                          <span>{r.employee.name}</span>
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-faint w-3">{open === r.employee.id ? '▾' : '▸'}</span>
+                          <Avatar src={r.employee.avatarUrl} name={r.employee.name} size={28} />
+                          <span className="font-medium">{r.employee.name}</span>
                         </div>
                       </td>
-                      <td className={ui.td}>{r.daysWithTimes}</td>
-                      <td className={ui.td}>{fmtH(r.totalWorked)}</td>
+                      <td className={`${ui.td} text-right tabular-nums`}>{r.daysWithTimes}</td>
+                      <td className={`${ui.td} text-right tabular-nums`}>{fmtH(r.totalWorked)}</td>
                       <td className={ui.td}>
                         <div className="flex items-center gap-2">
                           <div className="h-2 rounded-full bg-amber-400/80" style={{ width: `${(r.totalOt / maxOt) * 120}px` }} />
@@ -444,16 +445,16 @@ function TeamOvertime() {
                 ))}
                 {rows.length === 0 && (
                   <tr>
-                    <td className={`${ui.td} text-muted`} colSpan={4}>
-                      No overtime to show for {period}. Overtime is computed from recorded check-in and
-                      check-out times — it fills in as people sign in/out in Slack (or when times are
-                      added manually here or on the Attendance page).
+                    <td className={`${ui.td} text-muted text-center py-8`} colSpan={4}>
+                      No overtime to show for {period}. It fills in as people sign in/out in Slack
+                      (or when times are added manually on the Attendance page).
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
+          </SectionCard>
 
           <p className="text-muted text-xs mt-3">
             Overtime applies from Oct 5, 2026 onward — time worked beyond the person&apos;s assigned shift

@@ -3,7 +3,7 @@
 import { CSSProperties, FormEvent, useMemo, useState } from 'react';
 import { api, ApiError } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
-import { Avatar, Guard } from '../../lib/components';
+import { Avatar, Guard, PageHeader } from '../../lib/components';
 import { P } from '../../lib/permissions';
 import { to12h, ui } from '../../lib/ui';
 import { useFetch } from '../../lib/useFetch';
@@ -246,33 +246,36 @@ function Attendance() {
 
   return (
     <>
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
-        <h2 className={ui.h2}>Attendance</h2>
-        <div className="flex items-end gap-3">
-          {can('employees:create') && <PullButton onDone={() => attendance.reload()} />}
-          <div>
-            <label className={ui.label}>Year</label>
-            <select className={ui.input} value={year} onChange={(e) => setYear(Number(e.target.value))}>
-              {[curYear - 1, curYear, curYear + 1].map((y) => (
-                <option key={y} value={y}>{y}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className={ui.label}>Month</label>
-            <select
-              className={ui.input}
-              value={month}
-              onChange={(e) => setMonth(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-            >
-              <option value="all">Full year (to date)</option>
-              {MONTHS.map((m, i) => (
-                <option key={m} value={i}>{m}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title="Attendance"
+        description="Company-wide daily attendance, holidays and manual adjustments."
+        actions={
+          <>
+            {can('employees:create') && <PullButton onDone={() => attendance.reload()} />}
+            <div>
+              <label className={ui.label}>Year</label>
+              <select className={`${ui.input} !w-auto min-w-[88px] font-medium`} value={year} onChange={(e) => setYear(Number(e.target.value))}>
+                {[curYear - 1, curYear, curYear + 1].map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={ui.label}>Month</label>
+              <select
+                className={`${ui.input} !w-auto min-w-[150px] font-medium`}
+                value={month}
+                onChange={(e) => setMonth(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+              >
+                <option value="all">Full year (to date)</option>
+                {MONTHS.map((m, i) => (
+                  <option key={m} value={i}>{m}</option>
+                ))}
+              </select>
+            </div>
+          </>
+        }
+      />
 
       {can('attendance:update') && <MarkForm employees={emps} onSaved={() => attendance.reload()} />}
 
@@ -357,7 +360,7 @@ function Attendance() {
               });
               const pct = present + absent > 0 ? Math.round((present / (present + absent)) * 100) : 0;
               const rowBg = idx % 2 ? 'bg-panel' : 'bg-panel2/40';
-              const stickyBg = idx % 2 ? 'bg-panel' : 'bg-[#20293c]';
+              const stickyBg = idx % 2 ? 'bg-panel' : 'bg-[#16243a]';
               return (
                 <tr key={e.id} className={rowBg}>
                   <td className={`px-3 py-1.5 border-b border-line whitespace-nowrap ${stickyBg}`} style={stickyTh(LEFT.name, W.name)}>

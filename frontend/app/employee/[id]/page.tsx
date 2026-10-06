@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
-import { Avatar, Guard, StatusPill, TableSkeleton, TilesSkeleton } from '../../../lib/components';
+import { Avatar, Guard, SectionCard, StatTile, StatusPill, TableSkeleton, TilesSkeleton } from '../../../lib/components';
 import { displayStatus, tally } from '../../../lib/attendance';
 import { P } from '../../../lib/permissions';
 import { to12h, ui } from '../../../lib/ui';
@@ -92,39 +92,40 @@ function EmployeeAttendance() {
         </>
       ) : (
         <>
-          <div className={ui.grid}>
-            <Stat label={`Present in ${year}`} value={yearly.present} tone="text-emerald-300" />
-            <Stat label={`Absent in ${year}`} value={yearly.absent} tone="text-danger" />
-            <Stat label="On leave" value={yearly.leave} tone="text-blue-300" />
-            <Stat label="Attendance %" value={`${yearly.pct}%`} />
+          <div className={`${ui.grid} mb-5`}>
+            <StatTile label={`Present in ${year}`} value={yearly.present} accent="#34d399" />
+            <StatTile label={`Absent in ${year}`} value={yearly.absent} accent="#f87171" />
+            <StatTile label="On leave" value={yearly.leave} accent="#38bdf8" />
+            <StatTile label="Attendance %" value={`${yearly.pct}%`} accent="#a78bfa" />
           </div>
 
-          <div className={ui.card}>
-            <h3 className="font-semibold mb-2">Monthly breakdown — {year}</h3>
+          <SectionCard className="mb-5" title={`Monthly breakdown · ${year}`} bodyClassName="!p-0">
+            <div className="overflow-x-auto">
             <table className={ui.table}>
               <thead>
                 <tr>
                   <th className={ui.th}>Month</th>
-                  <th className={ui.th}>Present</th>
-                  <th className={ui.th}>Absent</th>
-                  <th className={ui.th}>%</th>
+                  <th className={`${ui.th} text-right`}>Present</th>
+                  <th className={`${ui.th} text-right`}>Absent</th>
+                  <th className={`${ui.th} text-right`}>%</th>
                 </tr>
               </thead>
               <tbody>
                 {byMonth.map((m, i) => (
-                  <tr key={i}>
-                    <td className={ui.td}>{MONTHS[i]}</td>
-                    <td className={`${ui.td} text-emerald-300 font-semibold`}>{m.present}</td>
-                    <td className={`${ui.td} text-danger font-semibold`}>{m.absent}</td>
-                    <td className={ui.td}>{m.present + m.absent > 0 ? `${m.pct}%` : '—'}</td>
+                  <tr key={i} className="transition-colors duration-150 hover:bg-white/[0.025]">
+                    <td className={`${ui.td} font-medium`}>{MONTHS[i]}</td>
+                    <td className={`${ui.td} text-right tabular-nums text-emerald-300 font-semibold`}>{m.present}</td>
+                    <td className={`${ui.td} text-right tabular-nums text-danger font-semibold`}>{m.absent}</td>
+                    <td className={`${ui.td} text-right tabular-nums`}>{m.present + m.absent > 0 ? `${m.pct}%` : '—'}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
+            </div>
+          </SectionCard>
 
-          <div className={ui.card}>
-            <h3 className="font-semibold mb-2">Records — {year}</h3>
+          <SectionCard title={`Records · ${year}`} subtitle={`${yearRecords.length} days`} bodyClassName="!p-0">
+            <div className="overflow-x-auto">
             <table className={ui.table}>
               <thead>
                 <tr>
@@ -136,33 +137,25 @@ function EmployeeAttendance() {
               </thead>
               <tbody>
                 {[...yearRecords].sort((a, b) => b.date.localeCompare(a.date)).map((r) => (
-                  <tr key={r.id}>
-                    <td className={ui.td}>{r.date}</td>
-                    <td className={ui.td}>{r.checkIn ? to12h(r.checkIn) : '—'}</td>
-                    <td className={ui.td}>{r.checkOut ? to12h(r.checkOut) : '—'}</td>
+                  <tr key={r.id} className="transition-colors duration-150 hover:bg-white/[0.025]">
+                    <td className={`${ui.td} font-medium tabular-nums`}>{r.date}</td>
+                    <td className={`${ui.td} tabular-nums`}>{r.checkIn ? to12h(r.checkIn) : '—'}</td>
+                    <td className={`${ui.td} tabular-nums`}>{r.checkOut ? to12h(r.checkOut) : '—'}</td>
                     <td className={ui.td}><StatusPill status={displayStatus(r, holidaySet)} /></td>
                   </tr>
                 ))}
                 {yearRecords.length === 0 && (
                   <tr>
-                    <td className={`${ui.td} text-muted`} colSpan={4}>No attendance records for {year}.</td>
+                    <td className={`${ui.td} text-muted text-center py-8`} colSpan={4}>No attendance records for {year}.</td>
                   </tr>
                 )}
               </tbody>
             </table>
-          </div>
+            </div>
+          </SectionCard>
         </>
       )}
     </>
-  );
-}
-
-function Stat({ label, value, tone }: { label: string; value: number | string; tone?: string }) {
-  return (
-    <div className={ui.card}>
-      <div className={`text-3xl font-bold ${tone ?? ''}`}>{value}</div>
-      <div className="text-muted text-[13px]">{label}</div>
-    </div>
   );
 }
 

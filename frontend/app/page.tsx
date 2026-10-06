@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useAuth } from '../lib/auth';
-import { MonthlyBars, StatTile, StatusBars, TableSkeleton, TilesSkeleton } from '../lib/components';
+import { EmptyState, MonthlyBars, PageHeader, SectionCard, StatTile, StatusBars, TableSkeleton, TilesSkeleton } from '../lib/components';
 import { P } from '../lib/permissions';
 import { ui } from '../lib/ui';
 import { useFetch } from '../lib/useFetch';
@@ -35,10 +35,10 @@ function CompanyDashboard({ year, name, company }: { year: number; name: string;
   const { data, loading } = useFetch<Matrix>(`/api/reports/attendance/matrix?year=${year}`);
 
   const header = (
-    <header className="mb-6">
-      <h2 className={ui.h2}>Welcome back{name ? `, ${name.split(' ')[0]}` : ''} 👋</h2>
-      <p className={ui.subtitle}>{company} · attendance overview for {year}</p>
-    </header>
+    <PageHeader
+      title={`Welcome back${name ? `, ${name.split(' ')[0]}` : ''}`}
+      description={`${company ? `${company} · ` : ''}attendance overview for ${year}`}
+    />
   );
   if (loading && !data) {
     return (
@@ -74,71 +74,97 @@ function CompanyDashboard({ year, name, company }: { year: number; name: string;
       </div>
 
       <div className="grid gap-5 lg:grid-cols-3 mb-5">
-        <div className="surface p-5 lg:col-span-2">
-          <div className="flex items-baseline justify-between mb-3">
-            <h3 className="font-semibold">Attendance rate by month</h3>
-            <span className="text-xs text-muted">% present of recorded days · {year}</span>
-          </div>
+        <SectionCard
+          className="lg:col-span-2"
+          title="Attendance rate by month"
+          subtitle={`% present of recorded days · ${year}`}
+        >
           <MonthlyBars data={monthly} />
-        </div>
-        <div className="surface p-5">
-          <h3 className="font-semibold mb-3">Status breakdown</h3>
+        </SectionCard>
+        <SectionCard title="Status breakdown">
           <StatusBars counts={(t as unknown as Record<string, number>) ?? {}} />
-        </div>
+        </SectionCard>
       </div>
 
-      <div className="surface p-5">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold">Most absences ({year})</h3>
-          <Link href="/reports" className="text-sm">View full report →</Link>
-        </div>
+      <SectionCard
+        className="mb-5"
+        title={`Most absences · ${year}`}
+        actions={<Link href="/reports" className="text-sm font-medium hover:underline">View full report →</Link>}
+        bodyClassName={topAbsent.length === 0 ? '!p-0' : '!p-0'}
+      >
         {topAbsent.length === 0 ? (
-          <p className={ui.muted}>No absences recorded yet.</p>
+          <EmptyState title="No absences recorded" description={`Nobody has been marked absent in ${year}. Attendance fills in as people check in and out.`} />
         ) : (
-          <table className={ui.table}>
-            <thead>
-              <tr>
-                <th className={ui.th}>Employee</th>
-                <th className={ui.th}>Present</th>
-                <th className={ui.th}>Absent</th>
-                <th className={ui.th}>Rate</th>
-              </tr>
-            </thead>
-            <tbody>
-              {topAbsent.map((e) => (
-                <tr key={e.employeeId}>
-                  <td className={ui.td}>{e.name}</td>
-                  <td className={`${ui.td} text-emerald-300 font-semibold`}>{attended(e.totals)}</td>
-                  <td className={`${ui.td} text-red-300 font-semibold`}>{e.totals.absent}</td>
-                  <td className={ui.td}>{rate(e.totals) ?? 0}%</td>
+          <div className="overflow-x-auto">
+            <table className={ui.table}>
+              <thead>
+                <tr>
+                  <th className={ui.th}>Employee</th>
+                  <th className={`${ui.th} text-right`}>Present</th>
+                  <th className={`${ui.th} text-right`}>Absent</th>
+                  <th className={`${ui.th} text-right`}>Rate</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {topAbsent.map((e) => (
+                  <tr key={e.employeeId} className="transition-colors duration-150 hover:bg-white/[0.025]">
+                    <td className={`${ui.td} font-medium`}>{e.name}</td>
+                    <td className={`${ui.td} text-right tabular-nums text-emerald-300 font-semibold`}>{attended(e.totals)}</td>
+                    <td className={`${ui.td} text-right tabular-nums text-red-300 font-semibold`}>{e.totals.absent}</td>
+                    <td className={`${ui.td} text-right tabular-nums`}>{rate(e.totals) ?? 0}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
-      </div>
+      </SectionCard>
     </>
   );
 }
 
 function EmployeeHome({ name }: { name: string }) {
+  const cards = [
+    {
+      href: '/my-attendance',
+      title: 'My Attendance',
+      desc: 'Your yearly and monthly present / absent summary.',
+      icon: (
+        <><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M8 2v4M16 2v4M3 9h18" /><path d="m9 15 2 2 4-4" /></>
+      ),
+    },
+    {
+      href: '/my-profile',
+      title: 'My Profile',
+      desc: 'Your details, role, shift and company.',
+      icon: (<><circle cx="12" cy="8" r="4" /><path d="M4 20c0-3.5 3.6-6 8-6s8 2.5 8 6" /></>),
+    },
+    {
+      href: '/overtime',
+      title: 'My Overtime',
+      desc: 'Hours worked beyond your assigned shift.',
+      icon: (<><circle cx="12" cy="13" r="8" /><path d="M12 9v4l2.5 2.5M9 2h6" /></>),
+    },
+  ];
   return (
     <>
-      <header className="mb-6">
-        <h2 className={ui.h2}>Welcome back{name ? `, ${name.split(' ')[0]}` : ''} 👋</h2>
-        <p className={ui.subtitle}>Here&apos;s where you can review your own attendance.</p>
-      </header>
-      <div className="grid gap-4 sm:grid-cols-2 max-w-2xl">
-        <Link href="/my-attendance" className="surface p-6 hover:brightness-110 transition">
-          <div className="text-2xl mb-1">🗓️</div>
-          <div className="font-semibold">My Attendance</div>
-          <p className={`${ui.muted} text-sm`}>Your yearly and monthly present/absent summary.</p>
-        </Link>
-        <Link href="/my-profile" className="surface p-6 hover:brightness-110 transition">
-          <div className="text-2xl mb-1">👤</div>
-          <div className="font-semibold">My Profile</div>
-          <p className={`${ui.muted} text-sm`}>Your details, role and company.</p>
-        </Link>
+      <PageHeader
+        title={`Welcome back${name ? `, ${name.split(' ')[0]}` : ''}`}
+        description="Your personal attendance workspace."
+      />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {cards.map((c) => (
+          <Link key={c.href} href={c.href} className="surface surface-hover p-5 group">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-accent/12 text-accent ring-1 ring-accent/20 mb-3">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">{c.icon}</svg>
+            </span>
+            <div className="font-semibold flex items-center gap-1.5">
+              {c.title}
+              <span className="text-muted opacity-0 group-hover:opacity-100 transition">→</span>
+            </div>
+            <p className={`${ui.muted} text-sm mt-1`}>{c.desc}</p>
+          </Link>
+        ))}
       </div>
     </>
   );

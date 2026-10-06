@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { api, ApiError } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
-import { Avatar, Guard, TableSkeleton } from '../../lib/components';
+import { Avatar, EmptyState, Guard, PageHeader, SectionCard, TableSkeleton } from '../../lib/components';
 import { P } from '../../lib/permissions';
 import { ui } from '../../lib/ui';
 import { useFetch } from '../../lib/useFetch';
@@ -32,44 +32,42 @@ function Shifts() {
 
   return (
     <>
-      <h2 className={ui.h2}>Shifts</h2>
-      <p className={`${ui.muted} text-sm mb-4`}>
-        Set each employee&apos;s working hours below. Attendance is marked late when someone
-        checks in after their start time plus the grace period.
-      </p>
+      <PageHeader
+        title="Shifts"
+        description="Set each person's working hours. A check-in after start time plus the grace period is marked late."
+      />
       {loading ? (
         <TableSkeleton rows={8} cols={editable ? 5 : 4} />
+      ) : (employees.data?.length ?? 0) === 0 ? (
+        <SectionCard bodyClassName="!p-0">
+          <EmptyState title="No employees yet" description="People sync automatically from your Slack #attendance channel after they sign in." />
+        </SectionCard>
       ) : (
-      <div className={`${ui.card} overflow-x-auto`}>
-        <table className={ui.table}>
-          <thead>
-            <tr>
-              <th className={ui.th}>Employee</th>
-              <th className={ui.th}>Start</th>
-              <th className={ui.th}>End</th>
-              <th className={ui.th}>Grace (min)</th>
-              {editable && <th className={ui.th}></th>}
-            </tr>
-          </thead>
-          <tbody>
-            {(employees.data ?? []).map((e) => (
-              <ShiftRow
-                key={e.id}
-                employee={e}
-                shift={e.shiftId ? shiftById.get(e.shiftId) : undefined}
-                editable={editable}
-              />
-            ))}
-            {employees.data?.length === 0 && (
-              <tr>
-                <td className={`${ui.td} text-muted`} colSpan={editable ? 5 : 4}>
-                  No employees yet — they sync from Slack automatically after login.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+        <SectionCard bodyClassName="!p-0">
+          <div className="overflow-x-auto">
+            <table className={ui.table}>
+              <thead>
+                <tr>
+                  <th className={ui.th}>Employee</th>
+                  <th className={ui.th}>Start</th>
+                  <th className={ui.th}>End</th>
+                  <th className={ui.th}>Grace (min)</th>
+                  {editable && <th className={`${ui.th} text-right`}>Actions</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {(employees.data ?? []).map((e) => (
+                  <ShiftRow
+                    key={e.id}
+                    employee={e}
+                    shift={e.shiftId ? shiftById.get(e.shiftId) : undefined}
+                    editable={editable}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </SectionCard>
       )}
     </>
   );
@@ -106,13 +104,13 @@ function ShiftRow({
     }
   }
 
-  const inputCls = `${ui.input} !w-40`;
+  const inputCls = `${ui.input} !w-36`;
   return (
-    <tr>
+    <tr className="transition-colors duration-150 hover:bg-white/[0.025]">
       <td className={`${ui.td} whitespace-nowrap`}>
         <div className="flex items-center gap-2.5">
-          <Avatar src={employee.avatarUrl} name={employee.name} size={30} />
-          <span>{employee.name}</span>
+          <Avatar src={employee.avatarUrl} name={employee.name} size={32} />
+          <span className="font-medium">{employee.name}</span>
         </div>
       </td>
       <td className={ui.td}>
@@ -125,11 +123,17 @@ function ShiftRow({
         <input type="number" min={0} max={240} className={`${ui.input} !w-20`} value={graceMins} disabled={!editable} onChange={(e) => setGrace(Number(e.target.value))} />
       </td>
       {editable && (
-        <td className={ui.td}>
-          <button className={ui.btn} onClick={save} disabled={state === 'saving'}>
-            {state === 'saving' ? 'Saving…' : state === 'saved' ? 'Saved ✓' : 'Save'}
-          </button>
-          {state === 'error' && <span className={`${ui.error} ml-2`}>{error}</span>}
+        <td className={`${ui.td} text-right`}>
+          <div className="flex items-center justify-end gap-2">
+            {state === 'error' && <span className={ui.error}>{error}</span>}
+            <button
+              className={`${state === 'saved' ? ui.btnSecondary : ui.btn} !py-1.5 !px-3`}
+              onClick={save}
+              disabled={state === 'saving'}
+            >
+              {state === 'saving' ? 'Saving…' : state === 'saved' ? 'Saved ✓' : 'Save'}
+            </button>
+          </div>
         </td>
       )}
     </tr>

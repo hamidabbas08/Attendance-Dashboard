@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { getToken } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
-import { Avatar, MonthlyBars, StatTile, StatusBars, Guard, TableSkeleton, TilesSkeleton } from '../../lib/components';
+import { Avatar, MonthlyBars, PageHeader, SectionCard, StatTile, StatusBars, Guard, TableSkeleton, TilesSkeleton } from '../../lib/components';
 import { P } from '../../lib/permissions';
 import { ui } from '../../lib/ui';
 import { useFetch } from '../../lib/useFetch';
@@ -47,28 +47,28 @@ function Reports() {
 
   return (
     <>
-      <header className="flex flex-wrap items-end justify-between gap-4 mb-6">
-        <div>
-          <h2 className={ui.h2}>Reports</h2>
-          <p className={ui.subtitle}>Attendance analytics and workforce performance</p>
-        </div>
-        <div className="flex items-end gap-2.5">
-          <div>
-            <label className={ui.label}>Year</label>
-            <select className={`${ui.input} !w-auto min-w-[104px] font-medium`} value={year} onChange={(e) => setYear(Number(e.target.value))}>
-              {[curYear - 1, curYear, curYear + 1].map((y) => <option key={y} value={y}>{y}</option>)}
-            </select>
-          </div>
-          {can('reports:export') && (
-            <button className={ui.btn} onClick={exportCsv}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                <path d="M12 3v12M8 11l4 4 4-4M5 21h14" />
-              </svg>
-              Export CSV
-            </button>
-          )}
-        </div>
-      </header>
+      <PageHeader
+        title="Reports"
+        description="Workforce attendance analytics and performance"
+        actions={
+          <>
+            <div>
+              <label className={ui.label}>Year</label>
+              <select className={`${ui.input} !w-auto min-w-[104px] font-medium`} value={year} onChange={(e) => setYear(Number(e.target.value))}>
+                {[curYear - 1, curYear, curYear + 1].map((y) => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
+            {can('reports:export') && (
+              <button className={ui.btn} onClick={exportCsv}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                  <path d="M12 3v12M8 11l4 4 4-4M5 21h14" />
+                </svg>
+                Export CSV
+              </button>
+            )}
+          </>
+        }
+      />
 
       {loading && !data ? (
         <>
@@ -87,19 +87,16 @@ function Reports() {
       </div>
 
       <div className="grid gap-5 lg:grid-cols-3 mb-5">
-        <div className="surface p-5 sm:p-6 lg:col-span-2">
-          <h3 className="text-[15px] font-semibold mb-4">Attendance rate by month</h3>
+        <SectionCard className="lg:col-span-2" title="Attendance rate by month" subtitle={`% present of recorded days · ${year}`}>
           <MonthlyBars data={monthly} />
-        </div>
-        <div className="surface p-5 sm:p-6">
-          <h3 className="text-[15px] font-semibold mb-4">Status breakdown</h3>
+        </SectionCard>
+        <SectionCard title="Status breakdown">
           <StatusBars counts={(t as unknown as Record<string, number>) ?? {}} />
-        </div>
+        </SectionCard>
       </div>
 
-      <div className="surface p-5 sm:p-6">
-        <h3 className="text-[15px] font-semibold mb-4">Per-employee summary</h3>
-        <div className="overflow-x-auto -mx-1 px-1">
+      <SectionCard title="Per-employee summary" subtitle={`${rows.length} people`} bodyClassName="!p-0">
+        <div className="overflow-x-auto">
           <table className={ui.table}>
             <thead>
               <tr>
@@ -132,12 +129,12 @@ function Reports() {
                 </tr>
               ))}
               {rows.length === 0 && (
-                <tr><td className={`${ui.td} text-muted`} colSpan={6}>No data for {year}.</td></tr>
+                <tr><td className={`${ui.td} text-muted text-center py-8`} colSpan={6}>No data for {year}.</td></tr>
               )}
             </tbody>
           </table>
         </div>
-      </div>
+      </SectionCard>
       </>
       )}
     </>

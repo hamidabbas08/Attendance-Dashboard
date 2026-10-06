@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { StatusPill, Guard, TableSkeleton, TilesSkeleton } from '../../lib/components';
+import { StatusPill, Guard, PageHeader, SectionCard, StatTile, TableSkeleton, TilesSkeleton } from '../../lib/components';
 import { displayStatus, tally } from '../../lib/attendance';
 import { P } from '../../lib/permissions';
 import { to12h, ui } from '../../lib/ui';
@@ -50,28 +50,36 @@ function MyAttendance() {
 
   return (
     <>
-      <div className="flex items-end justify-between gap-3 mb-4">
-        <h2 className={ui.h2}>My Attendance</h2>
-        <div>
-          <label className={ui.label}>Year</label>
-          <select className={ui.input} value={year} onChange={(e) => setYear(Number(e.target.value))}>
-            {years.map((y) => (
-              <option key={y} value={y}>{y}</option>
-            ))}
-          </select>
-        </div>
-      </div>
+      <PageHeader
+        title="My Attendance"
+        description="Your yearly and monthly present / absent summary."
+        actions={
+          <div>
+            <label className={ui.label}>Year</label>
+            <select className={`${ui.input} !w-auto min-w-[104px] font-medium`} value={year} onChange={(e) => setYear(Number(e.target.value))}>
+              {years.map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+          </div>
+        }
+      />
 
-      <div className="surface p-4 mb-5 flex items-center gap-3 flex-wrap">
-        <span className="text-muted text-sm">Your shift:</span>
-        {shift ? (
-          <span className="font-semibold">
-            {to12h(shift.startTime)} – {to12h(shift.endTime)}
-            <span className="text-muted font-normal"> · {shift.graceMins}m grace{shift.name ? ` · ${shift.name}` : ''}</span>
-          </span>
-        ) : (
-          <span className="text-muted">Not set yet — your HR/owner assigns shifts.</span>
-        )}
+      <div className="surface px-5 py-4 mb-5 flex items-center gap-3 flex-wrap">
+        <span className="grid h-9 w-9 place-items-center rounded-lg bg-accent/12 text-accent ring-1 ring-accent/20 shrink-0">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px]"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+        </span>
+        <div>
+          <div className="text-[11px] uppercase tracking-wider text-faint font-semibold">Your shift</div>
+          {shift ? (
+            <div className="font-semibold">
+              {to12h(shift.startTime)} – {to12h(shift.endTime)}
+              <span className="text-muted font-normal"> · {shift.graceMins}m grace{shift.name ? ` · ${shift.name}` : ''}</span>
+            </div>
+          ) : (
+            <div className="text-muted">Not set yet — your HR/owner assigns shifts.</div>
+          )}
+        </div>
       </div>
 
       {loading && !data ? (
@@ -82,79 +90,72 @@ function MyAttendance() {
       ) : (
       <>
       {/* Yearly totals */}
-      <div className={ui.grid}>
-        <Stat label={`Present in ${year}`} value={yearly.present} tone="text-emerald-300" />
-        <Stat label={`Absent in ${year}`} value={yearly.absent} tone="text-danger" />
-        <Stat label="On leave" value={yearly.leave} tone="text-blue-300" />
-        <Stat label="Attendance %" value={`${yearly.pct}%`} />
+      <div className={`${ui.grid} mb-5`}>
+        <StatTile label={`Present in ${year}`} value={yearly.present} accent="#34d399" />
+        <StatTile label={`Absent in ${year}`} value={yearly.absent} accent="#f87171" />
+        <StatTile label="On leave" value={yearly.leave} accent="#38bdf8" />
+        <StatTile label="Attendance %" value={`${yearly.pct}%`} accent="#a78bfa" />
       </div>
 
       {/* Monthly breakdown */}
-      <div className={ui.card}>
-        <h3 className="font-semibold mb-2">Monthly breakdown — {year}</h3>
-        <table className={ui.table}>
-          <thead>
-            <tr>
-              <th className={ui.th}>Month</th>
-              <th className={ui.th}>Present</th>
-              <th className={ui.th}>Absent</th>
-              <th className={ui.th}>%</th>
-            </tr>
-          </thead>
-          <tbody>
-            {byMonth.map((m, i) => (
-              <tr key={i}>
-                <td className={ui.td}>{MONTHS[i]}</td>
-                <td className={`${ui.td} text-emerald-300 font-semibold`}>{m.present}</td>
-                <td className={`${ui.td} text-danger font-semibold`}>{m.absent}</td>
-                <td className={ui.td}>{m.present + m.absent > 0 ? `${m.pct}%` : '—'}</td>
+      <SectionCard className="mb-5" title={`Monthly breakdown · ${year}`} bodyClassName="!p-0">
+        <div className="overflow-x-auto">
+          <table className={ui.table}>
+            <thead>
+              <tr>
+                <th className={ui.th}>Month</th>
+                <th className={`${ui.th} text-right`}>Present</th>
+                <th className={`${ui.th} text-right`}>Absent</th>
+                <th className={`${ui.th} text-right`}>%</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {byMonth.map((m, i) => (
+                <tr key={i} className="transition-colors duration-150 hover:bg-white/[0.025]">
+                  <td className={`${ui.td} font-medium`}>{MONTHS[i]}</td>
+                  <td className={`${ui.td} text-right tabular-nums text-emerald-300 font-semibold`}>{m.present}</td>
+                  <td className={`${ui.td} text-right tabular-nums text-danger font-semibold`}>{m.absent}</td>
+                  <td className={`${ui.td} text-right tabular-nums`}>{m.present + m.absent > 0 ? `${m.pct}%` : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </SectionCard>
 
       {/* Daily records */}
-      <div className={ui.card}>
-        <h3 className="font-semibold mb-2">Records — {year}</h3>
-        <table className={ui.table}>
-          <thead>
-            <tr>
-              <th className={ui.th}>Date</th>
-              <th className={ui.th}>Check in</th>
-              <th className={ui.th}>Check out</th>
-              <th className={ui.th}>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {[...yearRecords].sort((a, b) => b.date.localeCompare(a.date)).map((r) => (
-              <tr key={r.id}>
-                <td className={ui.td}>{r.date}</td>
-                <td className={ui.td}>{r.checkIn ? to12h(r.checkIn) : '—'}</td>
-                <td className={ui.td}>{r.checkOut ? to12h(r.checkOut) : '—'}</td>
-                <td className={ui.td}><StatusPill status={displayStatus(r, holidaySet)} /></td>
-              </tr>
-            ))}
-            {yearRecords.length === 0 && (
+      <SectionCard title={`Records · ${year}`} subtitle={`${yearRecords.length} days`} bodyClassName="!p-0">
+        <div className="overflow-x-auto">
+          <table className={ui.table}>
+            <thead>
               <tr>
-                <td className={`${ui.td} text-muted`} colSpan={4}>No attendance records for {year}.</td>
+                <th className={ui.th}>Date</th>
+                <th className={ui.th}>Check in</th>
+                <th className={ui.th}>Check out</th>
+                <th className={ui.th}>Status</th>
               </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {[...yearRecords].sort((a, b) => b.date.localeCompare(a.date)).map((r) => (
+                <tr key={r.id} className="transition-colors duration-150 hover:bg-white/[0.025]">
+                  <td className={`${ui.td} font-medium tabular-nums`}>{r.date}</td>
+                  <td className={`${ui.td} tabular-nums`}>{r.checkIn ? to12h(r.checkIn) : '—'}</td>
+                  <td className={`${ui.td} tabular-nums`}>{r.checkOut ? to12h(r.checkOut) : '—'}</td>
+                  <td className={ui.td}><StatusPill status={displayStatus(r, holidaySet)} /></td>
+                </tr>
+              ))}
+              {yearRecords.length === 0 && (
+                <tr>
+                  <td className={`${ui.td} text-muted text-center py-8`} colSpan={4}>No attendance records for {year}.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </SectionCard>
       </>
       )}
     </>
-  );
-}
-
-function Stat({ label, value, tone }: { label: string; value: number | string; tone?: string }) {
-  return (
-    <div className={ui.card}>
-      <div className={`text-3xl font-bold ${tone ?? ''}`}>{value}</div>
-      <div className="text-muted text-[13px]">{label}</div>
-    </div>
   );
 }
 

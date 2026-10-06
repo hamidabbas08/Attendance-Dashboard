@@ -80,6 +80,18 @@ function effectiveCheckOut(date: string, checkIn: string | null, checkOut: strin
   if (overnight && date >= pktToday()) return null;
   return checkOut;
 }
+/**
+ * True when a record is a still-open shift today: the person has signed in but
+ * not signed out yet. Attendance is only marked present after sign-out, so such
+ * a day is shown as pending (not P) and doesn't count toward present. Past days
+ * (shift already over) and manually-marked days (no sign-in at all) are never
+ * pending — they count as present as before.
+ */
+function pendingSignOut(date: string, rec: Record | undefined): boolean {
+  if (!rec || !rec.checkIn) return false;
+  if (date < pktToday()) return false;
+  return !effectiveCheckOut(date, rec.checkIn, rec.checkOut);
+}
 /** Hover text for a cell: name, date, status, and logged hours from Slack. */
 function cellTitle(name: string, date: string, t: string, rec: Record | undefined, holidayName?: string): string {
   let line = `${name} · ${date}${t ? ` · ${t}` : ''}`;
@@ -111,8 +123,11 @@ function daysInRange(from: string, to: string): string[] {
 function cellFor(date: string, rec: Record | undefined, holidayName?: string): { t: string; cls: string } {
   const wd = new Date(`${date}T00:00:00Z`).getUTCDay();
   // Worked attendance always shows, even on a holiday or weekend — so anyone who
-  // actually logged time on a declared holiday still gets their P.
+  // actually logged time on a declared holiday still gets their P. But present is
+  // only marked after sign-out: a still-open shift today (signed in, no sign-out
+  // yet) shows as pending, not P.
   if (rec && (rec.status === 'present' || rec.status === 'late')) {
+    if (pendingSignOut(date, rec)) return { t: '•', cls: 'text-amber-300/70' };
     return { t: 'P', cls: 'bg-emerald-600/25 text-emerald-300' };
   }
   // Otherwise a declared company holiday marks the whole day off for everyone —
@@ -294,8 +309,9 @@ function Attendance() {
                 const rec = recIndex.get(`${e.id}|${d}`);
                 const hol = holidayByDate.get(d);
                 // Worked time counts as present even on a holiday; absences on a
-                // holiday don't count (it's a day off).
-                if (rec?.status === 'present' || rec?.status === 'late') present += 1;
+                // holiday don't count (it's a day off). A still-open shift today
+                // (no sign-out yet) is pending — not counted present until sign-out.
+                if ((rec?.status === 'present' || rec?.status === 'late') && !pendingSignOut(d, rec)) present += 1;
                 if (!hol && rec?.status === 'absent') absent += 1;
                 const cell = cellFor(d, rec, hol);
                 return { d, ...cell, title: cellTitle(e.name, d, cell.t, rec, hol) };
@@ -349,7 +365,8 @@ function Attendance() {
 
       <p className="text-muted text-xs mt-2">
         Legend: <b className="text-emerald-300">P</b> present (late counts as present) ·{' '}
-        <b className="text-red-400">A</b> absent · <b>Off</b> off day / Sunday &amp; Saturday (from Oct 3, 2026) / holiday ·{' '}
+        <b className="text-red-400">A</b> absent · <b className="text-amber-300/70">•</b> signed in, awaiting sign-out ·{' '}
+        <b>Off</b> off day / Sunday &amp; Saturday (from Oct 3, 2026) / holiday ·{' '}
         <b>L</b> leave · <b>½</b> half day · blank = not recorded.
       </p>
     </>

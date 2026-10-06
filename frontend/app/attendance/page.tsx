@@ -120,7 +120,10 @@ function daysInRange(from: string, to: string): string[] {
   return out;
 }
 
-function cellFor(date: string, rec: Record | undefined, holidayName?: string): { t: string; cls: string } {
+function cellFor(date: string, rec: Record | undefined, holidayName?: string, joinDate?: string): { t: string; cls: string } {
+  // Before the employee joined, there is nothing to track — leave the cell blank
+  // (not an absence, not an off-day) so attendance starts from the joining day.
+  if (joinDate && date < joinDate) return { t: '', cls: '' };
   const wd = new Date(`${date}T00:00:00Z`).getUTCDay();
   // Worked attendance always shows, even on a holiday or weekend — so anyone who
   // actually logged time on a declared holiday still gets their P. But present is
@@ -201,6 +204,16 @@ function Attendance() {
     const s = new Set<string>();
     for (const r of attendance.data ?? []) s.add(r.employeeId);
     return s;
+  }, [attendance.data]);
+  // Earliest attendance date we've seen per employee, so an employee who has
+  // history from before their stored join date still shows all of it.
+  const earliestRecord = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of attendance.data ?? []) {
+      const cur = m.get(r.employeeId);
+      if (!cur || r.date < cur) m.set(r.employeeId, r.date);
+    }
+    return m;
   }, [attendance.data]);
   // Show active people, plus former members only for months they have records in.
   const emps = (employees.data ?? []).filter((e) => isActive(e) || withRecords.has(e.id));
@@ -305,15 +318,25 @@ function Attendance() {
             {emps.map((e, idx) => {
               let present = 0;
               let absent = 0;
+              // Attendance starts from the day the employee joined. Use the
+              // earliest of their stored join date and any record we have for
+              // them, so no history is ever hidden.
+              const createdDate = (e.createdAt || '').slice(0, 10);
+              const firstRec = earliestRecord.get(e.id);
+              const joinDate = [createdDate, firstRec].filter(Boolean).sort()[0] || undefined;
               const cells = days.map((d) => {
+                const beforeJoin = joinDate ? d < joinDate : false;
                 const rec = recIndex.get(`${e.id}|${d}`);
                 const hol = holidayByDate.get(d);
                 // Worked time counts as present even on a holiday; absences on a
                 // holiday don't count (it's a day off). A still-open shift today
                 // (no sign-out yet) is pending — not counted present until sign-out.
-                if ((rec?.status === 'present' || rec?.status === 'late') && !pendingSignOut(d, rec)) present += 1;
-                if (!hol && rec?.status === 'absent') absent += 1;
-                const cell = cellFor(d, rec, hol);
+                // Days before joining are ignored entirely.
+                if (!beforeJoin) {
+                  if ((rec?.status === 'present' || rec?.status === 'late') && !pendingSignOut(d, rec)) present += 1;
+                  if (!hol && rec?.status === 'absent') absent += 1;
+                }
+                const cell = cellFor(d, rec, hol, joinDate);
                 return { d, ...cell, title: cellTitle(e.name, d, cell.t, rec, hol) };
               });
               const pct = present + absent > 0 ? Math.round((present / (present + absent)) * 100) : 0;

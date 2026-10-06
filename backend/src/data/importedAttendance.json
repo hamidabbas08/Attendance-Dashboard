@@ -11098,14 +11098,14 @@
       "date": "2026-10-05",
       "status": "present",
       "checkIn": "16:51",
-      "checkOut": null
+      "checkOut": "02:07"
     },
     {
       "member": "Nimra Azmat",
       "date": "2026-10-05",
       "status": "present",
       "checkIn": "16:00",
-      "checkOut": null
+      "checkOut": "02:42"
     },
     {
       "member": "Sara Iftikhar",
@@ -11119,7 +11119,7 @@
       "date": "2026-10-05",
       "status": "present",
       "checkIn": "16:57",
-      "checkOut": null
+      "checkOut": "02:04"
     }
   ]
 }

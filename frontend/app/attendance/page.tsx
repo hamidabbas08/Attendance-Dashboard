@@ -67,10 +67,6 @@ function fmtDur(h: number): string {
 /** Hover text for a cell: name, date, status, and logged hours from Slack. */
 function cellTitle(name: string, date: string, t: string, rec: Record | undefined, holidayName?: string): string {
   let line = `${name} · ${date}${t ? ` · ${t}` : ''}`;
-  if (holidayName) {
-    line += `\nHoliday: ${holidayName}`;
-    return line;
-  }
   if (rec?.checkIn && rec?.checkOut) {
     line += `\nSign in ${rec.checkIn} → Sign out ${rec.checkOut} · Logged ${fmtDur(loggedHours(rec.checkIn, rec.checkOut))}`;
   } else if (rec?.checkIn) {
@@ -78,6 +74,7 @@ function cellTitle(name: string, date: string, t: string, rec: Record | undefine
   } else if (rec?.checkOut) {
     line += `\nSign out ${rec.checkOut}`;
   }
+  if (holidayName) line += `\nHoliday: ${holidayName}`;
   return line;
 }
 function today() {
@@ -96,14 +93,16 @@ function daysInRange(from: string, to: string): string[] {
 
 function cellFor(date: string, rec: Record | undefined, holidayName?: string): { t: string; cls: string } {
   const wd = new Date(`${date}T00:00:00Z`).getUTCDay();
-  // A declared company holiday marks the whole day off for everyone — shown the
-  // same way as a Sunday off (the holiday name is in the hover tooltip).
+  // Worked attendance always shows, even on a holiday or weekend — so anyone who
+  // actually logged time on a declared holiday still gets their P.
+  if (rec && (rec.status === 'present' || rec.status === 'late')) {
+    return { t: 'P', cls: 'bg-emerald-600/25 text-emerald-300' };
+  }
+  // Otherwise a declared company holiday marks the whole day off for everyone —
+  // shown the same way as a Sunday off (the holiday name is in the tooltip).
   if (holidayName) return { t: 'Off', cls: 'text-muted/70' };
   if (rec) {
     switch (rec.status) {
-      case 'present':
-      case 'late':
-        return { t: 'P', cls: 'bg-emerald-600/25 text-emerald-300' };
       case 'absent':
         return { t: 'A', cls: 'bg-red-600 text-white' };
       case 'leave':
@@ -111,7 +110,7 @@ function cellFor(date: string, rec: Record | undefined, holidayName?: string): {
       case 'half_day':
         return { t: '½', cls: 'bg-amber-700/40 text-amber-200' };
       case 'holiday':
-        return { t: 'H', cls: 'bg-blue-900/50 text-blue-300' };
+        return { t: 'Off', cls: 'text-muted/70' };
       case 'off_day':
         return { t: 'Off', cls: 'text-muted' };
     }
@@ -277,7 +276,9 @@ function Attendance() {
               const cells = days.map((d) => {
                 const rec = recIndex.get(`${e.id}|${d}`);
                 const hol = holidayByDate.get(d);
-                if (!hol && (rec?.status === 'present' || rec?.status === 'late')) present += 1;
+                // Worked time counts as present even on a holiday; absences on a
+                // holiday don't count (it's a day off).
+                if (rec?.status === 'present' || rec?.status === 'late') present += 1;
                 if (!hol && rec?.status === 'absent') absent += 1;
                 const cell = cellFor(d, rec, hol);
                 return { d, ...cell, title: cellTitle(e.name, d, cell.t, rec, hol) };
@@ -397,16 +398,6 @@ function HolidayManager({ holidays, onChange }: { holidays: Holiday[]; onChange:
       setBusy(false);
     }
   }
-  async function remove(h: Holiday) {
-    if (!confirm(`Remove the holiday "${h.name}" on ${h.date}?`)) return;
-    try {
-      await api(`/api/holidays/${h.id}`, { method: 'DELETE' });
-      onChange();
-    } catch (err) {
-      setError((err as ApiError).message);
-    }
-  }
-
   const sorted = [...holidays].sort((a, b) => a.date.localeCompare(b.date));
 
   return (
@@ -439,23 +430,62 @@ function HolidayManager({ holidays, onChange }: { holidays: Holiday[]; onChange:
           <div className="text-muted text-xs mb-2">Declared holidays</div>
           <div className="flex flex-col divide-y divide-line/50">
             {sorted.map((h) => (
-              <div key={h.id} className="flex items-center justify-between py-2">
-                <div className="text-sm">
-                  <span className="font-semibold">{h.date}</span>
-                  <span className="text-muted"> · {h.name}</span>
-                </div>
-                <button
-                  type="button"
-                  className="text-xs text-muted hover:text-red-300"
-                  onClick={() => remove(h)}
-                >
-                  Remove
-                </button>
-              </div>
+              <HolidayRow key={h.id} holiday={h} onChange={onChange} />
             ))}
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// A single declared holiday — editable (date + name). Holidays aren't removed.
+function HolidayRow({ holiday, onChange }: { holiday: Holiday; onChange: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [date, setDate] = useState(holiday.date);
+  const [name, setName] = useState(holiday.name);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  async function save() {
+    if (!name.trim()) return;
+    setBusy(true);
+    setErr('');
+    try {
+      await api('/api/holidays', { method: 'POST', body: JSON.stringify({ date, name: name.trim() }) });
+      // If the date moved, drop the old-date entry so there's just one.
+      if (date !== holiday.date) {
+        await api(`/api/holidays/${holiday.id}`, { method: 'DELETE' });
+      }
+      setEditing(false);
+      onChange();
+    } catch (e) {
+      setErr((e as ApiError).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-2 py-2 flex-wrap">
+        <input className={`${ui.input} !w-40`} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        <input className={`${ui.input} !w-56`} value={name} onChange={(e) => setName(e.target.value)} placeholder="Holiday name" />
+        <button className={`${ui.btn} !py-1.5 !px-3`} onClick={save} disabled={busy}>{busy ? '…' : 'Save'}</button>
+        <button className={`${ui.btnGhost} !py-1.5 !px-3`} onClick={() => { setEditing(false); setDate(holiday.date); setName(holiday.name); }}>Cancel</button>
+        {err && <span className={ui.error}>{err}</span>}
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center justify-between py-2">
+      <div className="text-sm">
+        <span className="font-semibold">{holiday.date}</span>
+        <span className="text-muted"> · {holiday.name}</span>
+      </div>
+      <button type="button" className="text-xs text-accent hover:underline" onClick={() => setEditing(true)}>
+        Edit
+      </button>
     </div>
   );
 }

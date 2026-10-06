@@ -44,8 +44,13 @@ employeesRouter.put(
     const principal = principalOf(req);
     const repo = repoFor(req);
     const employee = repo.getEmployee(req.params.id);
+    // Whether any OTHER employee is on this same shift — the company Day/Night
+    // shifts are shared, so editing one person's times must not change everyone
+    // else's. In that case give this employee their own copy and reassign them.
+    const sharedWithOthers = (shiftId: string) =>
+      repo.listEmployees().some((e) => e.id !== employee.id && e.shiftId === shiftId);
     let shift;
-    if (employee.shiftId) {
+    if (employee.shiftId && !sharedWithOthers(employee.shiftId)) {
       shift = repo.updateShift(employee.shiftId, req.body);
     } else {
       shift = repo.createShift({ name: `${employee.name} shift`, ...req.body });

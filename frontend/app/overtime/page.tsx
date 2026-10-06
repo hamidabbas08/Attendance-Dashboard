@@ -95,20 +95,32 @@ interface DayRow {
   ot: number;
 }
 
-// Today's date in PKT (company timezone), for spotting still-open shifts.
-function pktToday(): string {
-  return new Date(Date.now() + 5 * 3600 * 1000).toISOString().slice(0, 10);
+// Current PKT (company timezone, UTC+5) date and minutes-since-midnight.
+function pktNow(): { date: string; minutes: number } {
+  const d = new Date(Date.now() + 5 * 3600 * 1000);
+  return { date: d.toISOString().slice(0, 10), minutes: d.getUTCHours() * 60 + d.getUTCMinutes() };
+}
+function nextDate(date: string): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
 }
 /**
  * The real sign-out for a record, or null if the person hasn't signed out yet.
- * A sign-out earlier than the sign-in means an overnight shift; that can only be
- * complete once the next day has arrived — so on today's date such a "sign-out"
- * is a mis-paired value from the previous session and the shift is still open.
+ * A sign-out earlier than the sign-in is an overnight shift whose end actually
+ * falls on the NEXT day at that time — so it only counts once that exact moment
+ * has passed in PKT. Until then the value is not-yet-real / mis-paired and the
+ * shift is still open (e.g. an Oct 6 shift ending ~2 AM Oct 7 shows no sign-out
+ * and no overtime until 2 AM Oct 7 arrives).
  */
 function effectiveCheckOut(date: string, checkIn: string | null, checkOut: string | null): string | null {
   if (!checkIn || !checkOut) return checkOut;
   const overnight = parseHM(checkOut) <= parseHM(checkIn);
-  if (overnight && date >= pktToday()) return null; // shift not ended yet
+  if (!overnight) return checkOut;
+  const endDate = nextDate(date);
+  const now = pktNow();
+  if (endDate > now.date) return null;
+  if (endDate === now.date && parseHM(checkOut) * 60 > now.minutes) return null;
   return checkOut;
 }
 

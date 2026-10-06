@@ -95,10 +95,27 @@ interface DayRow {
   ot: number;
 }
 
+// Today's date in PKT (company timezone), for spotting still-open shifts.
+function pktToday(): string {
+  return new Date(Date.now() + 5 * 3600 * 1000).toISOString().slice(0, 10);
+}
+/**
+ * The real sign-out for a record, or null if the person hasn't signed out yet.
+ * A sign-out earlier than the sign-in means an overnight shift; that can only be
+ * complete once the next day has arrived — so on today's date such a "sign-out"
+ * is a mis-paired value from the previous session and the shift is still open.
+ */
+function effectiveCheckOut(date: string, checkIn: string | null, checkOut: string | null): string | null {
+  if (!checkIn || !checkOut) return checkOut;
+  const overnight = parseHM(checkOut) <= parseHM(checkIn);
+  if (overnight && date >= pktToday()) return null; // shift not ended yet
+  return checkOut;
+}
+
 /**
  * Per-day worked/overtime for one person's records, plus totals. `shiftHrs` is
  * the person's assigned shift length (hours); when null, a day's standard length
- * is used as a fallback.
+ * is used as a fallback. Overtime and worked hours count only after sign-out.
  */
 function computeDays(recs: Record[], shiftHrs: number | null) {
   let totalOt = 0;
@@ -108,14 +125,15 @@ function computeDays(recs: Record[], shiftHrs: number | null) {
     .slice()
     .sort((a, b) => a.date.localeCompare(b.date))
     .map((r) => {
-      const worked = r.checkIn && r.checkOut ? elapsedHours(r.checkIn, r.checkOut) : null;
-      const ot = overtimeOf(r.date, r.checkIn, r.checkOut, shiftHrs ?? defaultShiftHours(r.date));
+      const checkOut = effectiveCheckOut(r.date, r.checkIn, r.checkOut);
+      const worked = r.checkIn && checkOut ? elapsedHours(r.checkIn, checkOut) : null;
+      const ot = overtimeOf(r.date, r.checkIn, checkOut, shiftHrs ?? defaultShiftHours(r.date));
       if (worked != null) {
         totalWorked += worked;
         totalOt += ot;
         daysWithTimes += 1;
       }
-      return { date: r.date, status: r.status, checkIn: r.checkIn, checkOut: r.checkOut, worked, ot };
+      return { date: r.date, status: r.status, checkIn: r.checkIn, checkOut, worked, ot };
     });
   return { days, totalOt, totalWorked, daysWithTimes };
 }

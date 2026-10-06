@@ -43,8 +43,20 @@ async function seedCompany(
     id: shiftId,
     companyId,
     name: 'Day Shift',
-    startTime: '09:00',
-    endTime: '18:00',
+    startTime: '11:00',
+    endTime: '20:00',
+    graceMins: 15,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  const nightShiftId = store.id();
+  store.shifts.set(nightShiftId, {
+    id: nightShiftId,
+    companyId,
+    name: 'Night Shift',
+    startTime: '17:00',
+    endTime: '02:00',
     graceMins: 15,
     createdAt: now,
     updatedAt: now,

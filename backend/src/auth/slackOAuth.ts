@@ -1,6 +1,6 @@
 import { randomBytes } from 'crypto';
 import { config } from '../config/env';
-import { importAttendanceInto } from '../data/importSeed';
+import { ensureCompanyShifts, importAttendanceInto } from '../data/importSeed';
 import { store } from '../data/store';
 import { User } from '../data/types';
 import { AppError, UnauthorizedError } from '../errors';
@@ -254,6 +254,10 @@ function provisionCompanyWithOwner(identity: SlackIdentity): User {
   };
   store.users.set(userId, owner);
 
+  // Define the company's standard Day/Night shifts up front, so they exist even
+  // when the attendance import is disabled.
+  ensureCompanyShifts(companyId);
+
   // Preload the imported spreadsheet attendance into the new company.
   if (config.importAttendance && process.env.NODE_ENV !== 'test') {
     importAttendanceInto(companyId);
@@ -279,12 +283,14 @@ function provisionEmployee(companyId: string, identity: SlackIdentity): User {
   };
   store.users.set(userId, user);
 
+  // New members default to the Day Shift; HR can reassign on the Shifts page.
+  const { dayShiftId } = ensureCompanyShifts(companyId);
   const empId = store.id();
   store.employees.set(empId, {
     id: empId,
     companyId,
     userId,
-    shiftId: null,
+    shiftId: dayShiftId,
     slackUserId: identity.userId,
     name: user.name,
     email: user.email,

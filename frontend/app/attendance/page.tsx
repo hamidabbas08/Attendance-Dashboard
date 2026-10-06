@@ -64,15 +64,32 @@ function fmtDur(h: number): string {
   const mins = Math.round((h - hrs) * 60);
   return mins === 0 ? `${hrs}h` : `${hrs}h ${mins}m`;
 }
+// Today's date in PKT (company timezone, UTC+5), for spotting still-open shifts.
+function pktToday(): string {
+  return new Date(Date.now() + 5 * 3600 * 1000).toISOString().slice(0, 10);
+}
+/**
+ * The real sign-out for a record, or null if the person hasn't signed out yet.
+ * A sign-out earlier than the sign-in means an overnight shift, which can only
+ * be complete once the next day has arrived — so on today's date such a value
+ * is a mis-paired sign-out from the previous session and the shift is still open.
+ */
+function effectiveCheckOut(date: string, checkIn: string | null, checkOut: string | null): string | null {
+  if (!checkIn || !checkOut) return checkOut;
+  const overnight = parseHM(checkOut) <= parseHM(checkIn);
+  if (overnight && date >= pktToday()) return null;
+  return checkOut;
+}
 /** Hover text for a cell: name, date, status, and logged hours from Slack. */
 function cellTitle(name: string, date: string, t: string, rec: Record | undefined, holidayName?: string): string {
   let line = `${name} · ${date}${t ? ` · ${t}` : ''}`;
-  if (rec?.checkIn && rec?.checkOut) {
-    line += `\nSign in ${to12h(rec.checkIn)} → Sign out ${to12h(rec.checkOut)} · Logged ${fmtDur(loggedHours(rec.checkIn, rec.checkOut))}`;
+  const checkOut = rec ? effectiveCheckOut(date, rec.checkIn, rec.checkOut) : null;
+  if (rec?.checkIn && checkOut) {
+    line += `\nSign in ${to12h(rec.checkIn)} → Sign out ${to12h(checkOut)} · Logged ${fmtDur(loggedHours(rec.checkIn, checkOut))}`;
   } else if (rec?.checkIn) {
     line += `\nSign in ${to12h(rec.checkIn)} · no sign-out yet`;
-  } else if (rec?.checkOut) {
-    line += `\nSign out ${to12h(rec.checkOut)}`;
+  } else if (checkOut) {
+    line += `\nSign out ${to12h(checkOut)}`;
   }
   if (holidayName) line += `\nHoliday: ${holidayName}`;
   return line;

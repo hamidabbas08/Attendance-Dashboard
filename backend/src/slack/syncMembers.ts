@@ -1,6 +1,7 @@
 import { botTokenForWorkspace } from '../auth/slackOAuth';
 import { config } from '../config/env';
 import { TenantRepository } from '../data/repository';
+import { ensureCompanyShifts } from '../data/importSeed';
 import { store } from '../data/store';
 import { SlackWorkspace } from '../data/types';
 import { fetchChannelMemberIds, findChannelByName, joinChannel } from './api';
@@ -48,6 +49,8 @@ export async function syncWorkspaceMembers(workspace: SlackWorkspace): Promise<S
   const members = haveChannel ? all.filter((m) => memberIds.has(m.slackUserId)) : all;
 
   const repo = new TenantRepository(store, { companyId: workspace.companyId, crossTenant: false });
+  // New members default to the Day Shift; HR can reassign on the Shifts page.
+  const { dayShiftId } = ensureCompanyShifts(workspace.companyId);
   const roster = repo.listEmployees();
   let imported = 0;
   let updated = 0;
@@ -70,7 +73,7 @@ export async function syncWorkspaceMembers(workspace: SlackWorkspace): Promise<S
     } else {
       repo.createEmployee({
         userId: null,
-        shiftId: null,
+        shiftId: dayShiftId,
         slackUserId: m.slackUserId,
         name: m.name,
         email: m.email,

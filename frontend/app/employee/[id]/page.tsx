@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { Avatar, Guard, StatusPill, TableSkeleton, TilesSkeleton } from '../../../lib/components';
+import { displayStatus, tally } from '../../../lib/attendance';
 import { P } from '../../../lib/permissions';
 import { to12h, ui } from '../../../lib/ui';
 import { useFetch } from '../../../lib/useFetch';
@@ -32,24 +33,13 @@ const ROLE_LABEL: Record<string, string> = {
 };
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-function counts(records: Rec[]) {
-  let present = 0;
-  let absent = 0;
-  let leave = 0;
-  for (const r of records) {
-    if (r.status === 'present' || r.status === 'late') present += 1;
-    else if (r.status === 'absent') absent += 1;
-    else if (r.status === 'leave') leave += 1;
-  }
-  const pct = present + absent > 0 ? Math.round((present / (present + absent)) * 100) : 0;
-  return { present, absent, leave, pct };
-}
-
 function EmployeeAttendance() {
   const params = useParams();
   const id = String(params.id);
   const emp = useFetch<Employee>(`/api/employees/${id}`);
   const { data, loading } = useFetch<Rec[]>(`/api/attendance?employeeId=${id}`);
+  const holidays = useFetch<{ date: string }[]>('/api/holidays');
+  const holidaySet = useMemo(() => new Set((holidays.data ?? []).map((h) => h.date)), [holidays.data]);
 
   const all = data ?? [];
   const curYear = new Date().getUTCFullYear();
@@ -62,10 +52,10 @@ function EmployeeAttendance() {
   }, [all, curYear]);
 
   const yearRecords = useMemo(() => all.filter((r) => r.date.startsWith(`${year}-`)), [all, year]);
-  const yearly = counts(yearRecords);
+  const yearly = tally(yearRecords, holidaySet);
   const byMonth = useMemo(
-    () => MONTHS.map((_, i) => counts(yearRecords.filter((r) => Number(r.date.slice(5, 7)) === i + 1))),
-    [yearRecords],
+    () => MONTHS.map((_, i) => tally(yearRecords.filter((r) => Number(r.date.slice(5, 7)) === i + 1), holidaySet)),
+    [yearRecords, holidaySet],
   );
 
   const roles = emp.data?.roles?.length ? emp.data.roles : emp.data?.role ? [emp.data.role] : [];
@@ -150,7 +140,7 @@ function EmployeeAttendance() {
                     <td className={ui.td}>{r.date}</td>
                     <td className={ui.td}>{r.checkIn ? to12h(r.checkIn) : '—'}</td>
                     <td className={ui.td}>{r.checkOut ? to12h(r.checkOut) : '—'}</td>
-                    <td className={ui.td}><StatusPill status={r.status} /></td>
+                    <td className={ui.td}><StatusPill status={displayStatus(r, holidaySet)} /></td>
                   </tr>
                 ))}
                 {yearRecords.length === 0 && (

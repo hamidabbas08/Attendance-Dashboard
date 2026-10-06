@@ -1,7 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import { useMemo } from 'react';
 import { useAuth } from '../../lib/auth';
+import { tally } from '../../lib/attendance';
 import { to12h, ui } from '../../lib/ui';
 import { Skeleton } from '../../lib/components';
 import { useFetch } from '../../lib/useFetch';
@@ -22,7 +24,7 @@ const ROLE_LABEL: Record<string, string> = {
   employee: 'Employee',
 };
 
-interface Rec { status: string; date: string }
+interface Rec { status: string; date: string; checkIn?: string | null; checkOut?: string | null }
 interface Shift { name: string; startTime: string; endTime: string; graceMins: number }
 
 function initials(name: string) {
@@ -34,13 +36,14 @@ export default function MyProfile() {
   const year = new Date().getUTCFullYear();
   const { data, loading } = useFetch<Rec[]>('/api/attendance/me');
   const meInfo = useFetch<{ employee: { avatarUrl: string | null } | null; shift: Shift | null }>('/api/employees/me');
+  const holidays = useFetch<{ date: string }[]>('/api/holidays');
+  const holidaySet = useMemo(() => new Set((holidays.data ?? []).map((h) => h.date)), [holidays.data]);
   const shift = meInfo.data?.shift ?? null;
   const avatarUrl = meInfo.data?.employee?.avatarUrl ?? null;
   const shiftText = meInfo.loading && !meInfo.data ? '…' : shift ? `${to12h(shift.startTime)} – ${to12h(shift.endTime)} (${shift.graceMins}m grace)` : 'Not set';
   const statsLoading = loading && !data;
   const records = (data ?? []).filter((r) => r.date.startsWith(`${year}-`));
-  const present = records.filter((r) => r.status === 'present' || r.status === 'late').length;
-  const absent = records.filter((r) => r.status === 'absent').length;
+  const { present, absent } = tally(records, holidaySet);
   const rate = present + absent > 0 ? Math.round((present / (present + absent)) * 100) : null;
 
   if (!me) return null;

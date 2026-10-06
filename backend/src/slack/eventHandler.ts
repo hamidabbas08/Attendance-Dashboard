@@ -24,7 +24,13 @@ export interface ProcessResult {
   companyId: string;
   employeeId: string | null;
   status: string | null;
-  action: 'recorded' | 'ignored_no_employee' | 'ignored_no_intent' | 'ignored_bot' | 'ignored_terminated';
+  action:
+    | 'recorded'
+    | 'ignored_no_employee'
+    | 'ignored_no_intent'
+    | 'ignored_bot'
+    | 'ignored_terminated'
+    | 'ignored_unpaired_checkout';
 }
 
 /** "in"/"sign in" → check_in, "out"/"sign out" → check_out, else null. */
@@ -158,15 +164,29 @@ export async function recordMessage(
   const rule = repo.upsertAttendanceRule({});
   const shift = employee.shiftId ? repo.getShift(employee.shiftId) : null;
 
-  // A sign-out after midnight belongs to the previous day's open shift. If this
-  // day has no open check-in but the day before does, attach the sign-out there.
+  // A sign-out after midnight belongs to the previous day's open shift (a night
+  // shift that crossed midnight). Today's own check-in only pairs with this
+  // sign-out if it happened EARLIER than it — you can't sign out before you sign
+  // in. So a 2:42 AM sign-out can't belong to a 4:00 PM check-in on the same day;
+  // it attaches to the previous day's still-open shift instead. Comparing times
+  // (not just existence) makes this correct regardless of the order messages are
+  // processed in.
   let targetDate = date;
   if (intent === 'check_out') {
     const onDate = repo.listAttendance({ employeeId: employee.id, from: date, to: date }).find((r) => r.date === date);
-    if (!onDate || !onDate.checkIn) {
+    const pairsToday = onDate?.checkIn && onDate.checkIn <= time && !onDate.checkOut;
+    if (!pairsToday) {
       const yday = prevDate(date);
       const prev = repo.listAttendance({ employeeId: employee.id, from: yday, to: yday }).find((r) => r.date === yday);
-      if (prev && prev.checkIn && !prev.checkOut) targetDate = yday;
+      if (prev && prev.checkIn && !prev.checkOut) {
+        targetDate = yday; // night shift that crossed midnight → previous day's open shift
+      } else {
+        // This sign-out can't pair to an open shift today (no earlier sign-in) or
+        // yesterday (already closed). Recording a lone sign-out on today would
+        // create a bogus checkout-before-checkin once today's real sign-in lands,
+        // so drop it — it's a duplicate of an already-closed shift or a stray.
+        return { companyId, employeeId: employee.id, status: null, action: 'ignored_unpaired_checkout' };
+      }
     }
   }
 

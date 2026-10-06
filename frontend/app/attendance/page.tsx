@@ -233,7 +233,7 @@ function Attendance() {
       {can('attendance:update') && <MarkForm employees={emps} onSaved={() => attendance.reload()} />}
 
       {can('attendance_rules:create') && (
-        <HolidayManager holidays={holidays.data ?? []} onChange={() => holidays.reload()} />
+        <HolidayManager holidays={holidays.data ?? []} year={year} month={month} onChange={() => holidays.reload()} />
       )}
 
       {emps.length > 0 && (attendance.data?.length ?? 0) === 0 && !attendance.loading && (
@@ -394,7 +394,11 @@ interface Holiday {
 }
 
 // Declare company holidays: a whole day off for everyone, with a name.
-function HolidayManager({ holidays, onChange }: { holidays: Holiday[]; onChange: () => void }) {
+function HolidayManager({
+  holidays, year, month, onChange,
+}: {
+  holidays: Holiday[]; year: number; month: number | 'all'; onChange: () => void;
+}) {
   const [date, setDate] = useState(today());
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
@@ -415,7 +419,11 @@ function HolidayManager({ holidays, onChange }: { holidays: Holiday[]; onChange:
       setBusy(false);
     }
   }
-  const sorted = [...holidays].sort((a, b) => a.date.localeCompare(b.date));
+  // Only list holidays that fall in the period currently shown in the grid:
+  // a specific month (YYYY-MM) or the whole selected year.
+  const prefix = month === 'all' ? `${year}-` : `${year}-${pad(month + 1)}-`;
+  const periodLabel = month === 'all' ? `${year}` : `${MONTHS[month]} ${year}`;
+  const sorted = [...holidays].filter((h) => h.date.startsWith(prefix)).sort((a, b) => a.date.localeCompare(b.date));
 
   return (
     <div className={ui.card}>
@@ -442,16 +450,18 @@ function HolidayManager({ holidays, onChange }: { holidays: Holiday[]; onChange:
         {error && <div className={ui.error}>{error}</div>}
       </form>
 
-      {sorted.length > 0 && (
-        <div className="mt-4 border-t border-line/60 pt-3">
-          <div className="text-muted text-xs mb-2">Declared holidays</div>
+      <div className="mt-4 border-t border-line/60 pt-3">
+        <div className="text-muted text-xs mb-2">Declared holidays · {periodLabel}</div>
+        {sorted.length > 0 ? (
           <div className="flex flex-col divide-y divide-line/50">
             {sorted.map((h) => (
               <HolidayRow key={h.id} holiday={h} onChange={onChange} />
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="text-muted text-sm">No holidays declared in {periodLabel}.</div>
+        )}
+      </div>
     </div>
   );
 }

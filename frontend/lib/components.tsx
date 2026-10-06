@@ -21,7 +21,7 @@ export function Avatar({ src, name, size = 28 }: { src?: string | null; name: st
   return (
     <span
       style={{ width: size, height: size, background: 'linear-gradient(135deg,#38bdf8,#a78bfa)' }}
-      className="relative rounded-full flex items-center justify-center text-ink font-semibold shrink-0 overflow-hidden"
+      className="relative rounded-full flex items-center justify-center text-ink font-semibold shrink-0 overflow-hidden ring-1 ring-white/10"
     >
       <span style={{ fontSize: size * 0.4 }}>{initials(name)}</span>
       {src && (
@@ -47,11 +47,11 @@ export function Skeleton({ className = '' }: { className?: string }) {
 /** A grid of KPI-tile skeletons. */
 export function TilesSkeleton({ count = 5 }: { count?: number }) {
   return (
-    <div className="grid gap-4 mb-5 [grid-template-columns:repeat(auto-fit,minmax(180px,1fr))]">
+    <div className="grid gap-4 mb-5 [grid-template-columns:repeat(auto-fit,minmax(190px,1fr))]">
       {Array.from({ length: count }).map((_, i) => (
         <div key={i} className="surface p-5">
-          <Skeleton className="h-8 w-16 mb-2" />
-          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-2.5 w-20 mb-3" />
+          <Skeleton className="h-8 w-16" />
         </div>
       ))}
     </div>
@@ -87,7 +87,7 @@ export function Guard({ perm, children }: { perm: string; children: ReactNode })
   return <>{children}</>;
 }
 
-/** A KPI tile: big number, label, optional accent bar and sub-text. */
+/** A KPI tile: accent indicator + label on top, dominant number below. */
 export function StatTile({
   label,
   value,
@@ -100,34 +100,66 @@ export function StatTile({
   accent?: string;
 }) {
   return (
-    <div className="surface p-5 relative overflow-hidden">
-      <div className="absolute left-0 top-0 h-full w-1" style={{ background: accent }} />
-      <div className="text-3xl font-bold tracking-tight">{value}</div>
-      <div className="text-muted text-[13px] mt-0.5">{label}</div>
-      {sub && <div className="text-xs text-muted/80 mt-1">{sub}</div>}
+    <div className="surface surface-hover p-5 relative overflow-hidden">
+      {/* subtle accent wash in the corner */}
+      <div
+        className="pointer-events-none absolute -right-8 -top-8 h-20 w-20 rounded-full opacity-[0.12] blur-xl"
+        style={{ background: accent }}
+      />
+      <div className="flex items-center gap-2 mb-2.5">
+        <span className="h-2 w-2 rounded-full" style={{ background: accent }} />
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">{label}</span>
+      </div>
+      <div className="text-[30px] leading-none font-bold tracking-tight tabular-nums">{value}</div>
+      {sub && <div className="text-xs text-muted/80 mt-1.5">{sub}</div>}
     </div>
   );
 }
 
 /** Single-series monthly bar chart (attendance %). Title names the series. */
 export function MonthlyBars({ data }: { data: { label: string; value: number | null }[] }) {
+  const PLOT = 150; // px height of the plotting area
   return (
-    <div className="flex items-end gap-2" style={{ height: 160 }}>
-      {data.map((d) => (
-        <div key={d.label} className="flex-1 flex flex-col items-center gap-1.5 group">
-          <div className="text-[10px] text-muted opacity-0 group-hover:opacity-100 transition h-3">
-            {d.value == null ? '' : `${d.value}%`}
+    <div className="pl-7 pr-1">
+      <div className="relative" style={{ height: PLOT }}>
+        {/* horizontal gridlines + y-axis labels */}
+        {[100, 75, 50, 25, 0].map((g) => (
+          <div
+            key={g}
+            className="absolute inset-x-0 flex items-center"
+            style={{ top: `${((100 - g) / 100) * PLOT}px` }}
+          >
+            <span className="absolute -left-7 -translate-y-1/2 text-[10px] tabular-nums text-muted/70">{g}</span>
+            <div className={`w-full border-t ${g === 0 ? 'border-line' : 'border-line/40'}`} />
           </div>
-          <div className="w-full flex items-end justify-center" style={{ height: 116 }}>
-            <div
-              title={`${d.label}: ${d.value == null ? 'no data' : d.value + '%'}`}
-              className="w-full max-w-[26px] rounded-md bg-accent/70 group-hover:bg-accent transition-all"
-              style={{ height: `${d.value ?? 0}%`, minHeight: d.value == null ? 0 : 3 }}
-            />
-          </div>
-          <div className="text-[10px] text-muted">{d.label}</div>
+        ))}
+        {/* bars */}
+        <div className="absolute inset-0 flex items-end gap-1.5">
+          {data.map((d) => (
+            <div key={d.label} className="group relative flex-1 h-full flex items-end justify-center">
+              {/* faint full-height track so empty months read as "no data" */}
+              <div className="absolute bottom-0 w-full max-w-[22px] h-full rounded-md bg-panel2/40" />
+              <div
+                className="relative w-full max-w-[22px] rounded-t-md bg-gradient-to-t from-accent/70 to-accent transition-[height,filter] duration-150 group-hover:brightness-110"
+                style={{ height: `${d.value ?? 0}%`, minHeight: d.value == null ? 0 : 3 }}
+              />
+              {/* hover tooltip */}
+              <div className="pointer-events-none absolute -top-1 left-1/2 -translate-x-1/2 -translate-y-full opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-10">
+                <div className="rounded-md bg-ink/95 border border-line px-2 py-1 text-[11px] whitespace-nowrap shadow-pop">
+                  <span className="text-muted">{d.label}: </span>
+                  <span className="font-semibold text-fg">{d.value == null ? 'no data' : `${d.value}%`}</span>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
-      ))}
+      </div>
+      {/* x-axis labels */}
+      <div className="flex gap-1.5 mt-2">
+        {data.map((d) => (
+          <div key={d.label} className="flex-1 text-center text-[10px] text-muted">{d.label}</div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -141,18 +173,23 @@ export function StatusBars({ counts }: { counts: Record<string, number> }) {
   const max = Math.max(1, ...items.map((i) => i.n));
   if (items.length === 0) return <p className={ui.muted}>No records yet.</p>;
   return (
-    <div className="flex flex-col gap-2.5">
+    <div className="flex flex-col gap-3.5">
       {items.map((i) => (
-        <div key={i.k} className="flex items-center gap-3 text-sm">
-          <div className="w-20 shrink-0 text-muted">{i.label}</div>
-          <div className="flex-1 h-3 rounded-full bg-panel2 overflow-hidden">
+        <div key={i.k} className="text-sm">
+          <div className="flex items-center justify-between mb-1.5">
+            <div className="flex items-center gap-2 text-muted">
+              <span className="h-2 w-2 rounded-full" style={{ background: i.hex }} />
+              {i.label}
+            </div>
+            <div className={`font-semibold tabular-nums ${i.text}`}>{i.n}</div>
+          </div>
+          <div className="h-2 rounded-full bg-panel2 overflow-hidden ring-1 ring-white/5">
             <div
-              className="h-full rounded-full"
-              style={{ width: `${(i.n / max) * 100}%`, background: i.hex }}
+              className="h-full rounded-full transition-all duration-200"
+              style={{ width: `${Math.max((i.n / max) * 100, 4)}%`, background: i.hex }}
               title={`${i.label}: ${i.n}`}
             />
           </div>
-          <div className={`w-10 text-right font-semibold ${i.text}`}>{i.n}</div>
         </div>
       ))}
     </div>

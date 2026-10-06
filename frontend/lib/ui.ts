@@ -27,6 +27,18 @@ export function pillClass(status: string): string {
   return `pill pill-${status}`;
 }
 
+/** Format a stored 24h "HH:MM" as 12-hour with AM/PM, e.g. "16:05" → "4:05 PM". */
+export function to12h(hhmm: string | null | undefined): string {
+  if (!hhmm) return '';
+  const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm);
+  if (!m) return hhmm;
+  let h = Number(m[1]);
+  const ap = h >= 12 ? 'PM' : 'AM';
+  h = h % 12;
+  if (h === 0) h = 12;
+  return `${h}:${m[2]} ${ap}`;
+}
+
 /** Status → { label, color } for tiles, bars and legends. */
 export const STATUS_META: Record<string, { label: string; hex: string; text: string }> = {
   present: { label: 'Present', hex: '#34d399', text: 'text-emerald-300' },

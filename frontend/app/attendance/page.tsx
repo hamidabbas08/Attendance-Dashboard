@@ -5,7 +5,7 @@ import { api, ApiError } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { Avatar, Guard } from '../../lib/components';
 import { P } from '../../lib/permissions';
-import { ui } from '../../lib/ui';
+import { to12h, ui } from '../../lib/ui';
 import { useFetch } from '../../lib/useFetch';
 
 interface Employee {
@@ -68,11 +68,11 @@ function fmtDur(h: number): string {
 function cellTitle(name: string, date: string, t: string, rec: Record | undefined, holidayName?: string): string {
   let line = `${name} · ${date}${t ? ` · ${t}` : ''}`;
   if (rec?.checkIn && rec?.checkOut) {
-    line += `\nSign in ${rec.checkIn} → Sign out ${rec.checkOut} · Logged ${fmtDur(loggedHours(rec.checkIn, rec.checkOut))}`;
+    line += `\nSign in ${to12h(rec.checkIn)} → Sign out ${to12h(rec.checkOut)} · Logged ${fmtDur(loggedHours(rec.checkIn, rec.checkOut))}`;
   } else if (rec?.checkIn) {
-    line += `\nSign in ${rec.checkIn} · no sign-out yet`;
+    line += `\nSign in ${to12h(rec.checkIn)} · no sign-out yet`;
   } else if (rec?.checkOut) {
-    line += `\nSign out ${rec.checkOut}`;
+    line += `\nSign out ${to12h(rec.checkOut)}`;
   }
   if (holidayName) line += `\nHoliday: ${holidayName}`;
   return line;

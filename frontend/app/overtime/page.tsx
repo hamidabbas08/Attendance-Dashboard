@@ -5,7 +5,7 @@ import { api, ApiError } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { Avatar, Guard, StatTile, TableSkeleton, TilesSkeleton } from '../../lib/components';
 import { P } from '../../lib/permissions';
-import { ui } from '../../lib/ui';
+import { to12h, ui } from '../../lib/ui';
 import { useFetch } from '../../lib/useFetch';
 
 interface Employee {
@@ -13,6 +13,10 @@ interface Employee {
   name: string;
   status: string;
   avatarUrl?: string | null;
+  shiftId?: string | null;
+}
+interface ShiftRec extends Shift {
+  id: string;
 }
 interface Record {
   id: string;
@@ -34,11 +38,10 @@ const MONTHS = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
-// Standard shift length (hours, start → end incl. break). Overtime is any time
-// present beyond this. From 2026-10-05 shifts are 9h (8 work + 1 break); before
-// that the schedule was 12h. See the HR policy (Oct 2026).
+// Default standard shift length (hours) when an employee has no shift assigned:
+// 9h from 2026-10-05 (8 work + 1 break), 12h before. Per the HR policy (Oct 2026).
 const NEW_SHIFT_FROM = '2026-10-05';
-function shiftHoursFor(date: string): number {
+function defaultShiftHours(date: string): number {
   return date >= NEW_SHIFT_FROM ? 9 : 12;
 }
 
@@ -60,10 +63,20 @@ function elapsedHours(checkIn: string, checkOut: string): number {
   if (b <= a) b += 24;
   return b - a;
 }
-function overtimeOf(date: string, checkIn: string | null, checkOut: string | null): number {
-  if (!checkIn || !checkOut) return 0;
-  if (date < OVERTIME_FROM) return 0; // overtime only applies from the cutoff onward
-  return Math.max(0, elapsedHours(checkIn, checkOut) - shiftHoursFor(date));
+/** Length of an assigned shift in hours (overnight-aware), or null if none. */
+function shiftLength(shift?: Shift | null): number | null {
+  if (!shift) return null;
+  const a = parseHM(shift.startTime);
+  let b = parseHM(shift.endTime);
+  if (b <= a) b += 24;
+  return b - a;
+}
+// Overtime = time worked beyond the shift, counted only once the person has
+// signed out (both check-in and check-out present) and from the cutoff onward.
+function overtimeOf(date: string, checkIn: string | null, checkOut: string | null, shiftHrs: number): number {
+  if (!checkIn || !checkOut) return 0; // shift not ended yet → no overtime
+  if (date < OVERTIME_FROM) return 0;
+  return Math.max(0, elapsedHours(checkIn, checkOut) - shiftHrs);
 }
 function fmtH(h: number): string {
   if (h <= 0) return '—';
@@ -82,8 +95,12 @@ interface DayRow {
   ot: number;
 }
 
-/** Per-day worked/overtime for one person's records, plus totals. */
-function computeDays(recs: Record[]) {
+/**
+ * Per-day worked/overtime for one person's records, plus totals. `shiftHrs` is
+ * the person's assigned shift length (hours); when null, a day's standard length
+ * is used as a fallback.
+ */
+function computeDays(recs: Record[], shiftHrs: number | null) {
   let totalOt = 0;
   let totalWorked = 0;
   let daysWithTimes = 0;
@@ -92,7 +109,7 @@ function computeDays(recs: Record[]) {
     .sort((a, b) => a.date.localeCompare(b.date))
     .map((r) => {
       const worked = r.checkIn && r.checkOut ? elapsedHours(r.checkIn, r.checkOut) : null;
-      const ot = overtimeOf(r.date, r.checkIn, r.checkOut);
+      const ot = overtimeOf(r.date, r.checkIn, r.checkOut, shiftHrs ?? defaultShiftHours(r.date));
       if (worked != null) {
         totalWorked += worked;
         totalOt += ot;
@@ -152,7 +169,7 @@ function ShiftBanner({ shift }: { shift: Shift | null }) {
       <span className="text-muted text-sm">Your shift:</span>
       {shift ? (
         <span className="font-semibold">
-          {shift.startTime} – {shift.endTime}
+          {to12h(shift.startTime)} – {to12h(shift.endTime)}
           <span className="text-muted font-normal"> · {shift.graceMins}m grace{shift.name ? ` · ${shift.name}` : ''}</span>
         </span>
       ) : (
@@ -178,10 +195,11 @@ function PersonalOvertime() {
   const attendance = useFetch<Record[]>('/api/attendance/me');
 
   const { from, to } = rangeFor(year, month);
+  const shiftHrs = shiftLength(meInfo.data?.shift);
   const { days, totalOt, totalWorked, daysWithTimes } = useMemo(() => {
     const recs = (attendance.data ?? []).filter((r) => r.date >= from && r.date <= to);
-    return computeDays(recs);
-  }, [attendance.data, from, to]);
+    return computeDays(recs, shiftHrs);
+  }, [attendance.data, from, to, shiftHrs]);
 
   const loading = attendance.loading && !attendance.data;
   const period = month === 'all' ? `${year}` : `${MONTHS[month]} ${year}`;
@@ -226,8 +244,8 @@ function PersonalOvertime() {
                 {days.map((d) => (
                   <tr key={d.date} className="border-t border-line/60">
                     <td className="py-1.5">{d.date}</td>
-                    <td className="py-1.5">{d.checkIn ?? '—'}</td>
-                    <td className="py-1.5">{d.checkOut ?? '—'}</td>
+                    <td className="py-1.5">{d.checkIn ? to12h(d.checkIn) : '—'}</td>
+                    <td className="py-1.5">{d.checkOut ? to12h(d.checkOut) : '—'}</td>
                     <td className="py-1.5">{d.worked != null ? fmtDur(d.worked) : '—'}</td>
                     <td className={`py-1.5 ${d.ot > 0 ? 'text-amber-300 font-semibold' : 'text-muted'}`}>
                       {d.ot > 0 ? `+${fmtDur(d.ot)}` : '—'}
@@ -246,8 +264,9 @@ function PersonalOvertime() {
           </div>
 
           <p className="text-muted text-xs mt-3">
-            Overtime applies from Oct 5, 2026 onward — time present beyond the 9h shift. Earlier days show
-            worked hours but no overtime. Only days with both a sign-in and a sign-out are counted.
+            Overtime applies from Oct 5, 2026 onward — time worked beyond the person&apos;s assigned shift
+            (9h default). It is counted only after sign-out; days with just a sign-in show worked hours but
+            no overtime yet.
           </p>
         </>
       )}
@@ -270,8 +289,10 @@ function TeamOvertime() {
 
   const employees = useFetch<Employee[]>('/api/employees');
   const attendance = useFetch<Record[]>(`/api/attendance?from=${from}&to=${to}`);
+  const shifts = useFetch<ShiftRec[]>('/api/shifts');
 
   const rows = useMemo(() => {
+    const shiftById = new Map((shifts.data ?? []).map((s) => [s.id, s]));
     const byEmp = new Map<string, Record[]>();
     for (const r of attendance.data ?? []) {
       if (!byEmp.has(r.employeeId)) byEmp.set(r.employeeId, []);
@@ -281,12 +302,13 @@ function TeamOvertime() {
     for (const e of employees.data ?? []) {
       const recs = byEmp.get(e.id) ?? [];
       if (recs.length === 0) continue;
-      const c = computeDays(recs);
+      const shiftHrs = e.shiftId ? shiftLength(shiftById.get(e.shiftId)) : null;
+      const c = computeDays(recs, shiftHrs);
       if (c.daysWithTimes === 0) continue;
       out.push({ employee: e, ...c });
     }
     return out.sort((a, b) => b.totalOt - a.totalOt);
-  }, [attendance.data, employees.data]);
+  }, [attendance.data, employees.data, shifts.data]);
 
   const loading = (attendance.loading && !attendance.data) || (employees.loading && !employees.data);
   const grandOt = rows.reduce((s, r) => s + r.totalOt, 0);
@@ -360,7 +382,7 @@ function TeamOvertime() {
                       <tr>
                         <td className="bg-panel2/30 px-4 py-3 border-b border-line" colSpan={4}>
                           <div className="text-muted text-xs mb-2">
-                            Each logged day — overtime applies from Oct 5, 2026 (time beyond the 9h shift).
+                            Each logged day — overtime is time worked beyond their shift, counted after sign-out.
                           </div>
                           <table className="w-full text-xs">
                             <thead>
@@ -404,8 +426,9 @@ function TeamOvertime() {
           </div>
 
           <p className="text-muted text-xs mt-3">
-            Overtime applies from Oct 5, 2026 onward — time present beyond the 9h shift. Earlier days show
-            worked hours but no overtime. Only days with both a sign-in and a sign-out are counted.
+            Overtime applies from Oct 5, 2026 onward — time worked beyond the person&apos;s assigned shift
+            (9h default). It is counted only after sign-out; days with just a sign-in show worked hours but
+            no overtime yet.
           </p>
         </>
       )}
@@ -493,8 +516,8 @@ function DayLine({
   return (
     <tr className="border-t border-line/60">
       <td className="py-1.5">{day.date}</td>
-      <td className="py-1.5">{day.checkIn ?? '—'}</td>
-      <td className="py-1.5">{day.checkOut ?? '—'}</td>
+      <td className="py-1.5">{day.checkIn ? to12h(day.checkIn) : '—'}</td>
+      <td className="py-1.5">{day.checkOut ? to12h(day.checkOut) : '—'}</td>
       <td className="py-1.5">{day.worked != null ? fmtH(day.worked) : '—'}</td>
       <td className={`py-1.5 ${day.ot > 0 ? 'text-amber-300 font-semibold' : 'text-muted'}`}>
         {day.ot > 0 ? `+${fmtH(day.ot)}` : '—'}

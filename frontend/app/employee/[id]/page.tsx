@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { Avatar, Guard, StatusPill, TableSkeleton, TilesSkeleton } from '../../../lib/components';
 import { P } from '../../../lib/permissions';
-import { ui } from '../../../lib/ui';
+import { to12h, ui } from '../../../lib/ui';
 import { useFetch } from '../../../lib/useFetch';
 
 interface Rec {
@@ -148,8 +148,8 @@ function EmployeeAttendance() {
                 {[...yearRecords].sort((a, b) => b.date.localeCompare(a.date)).map((r) => (
                   <tr key={r.id}>
                     <td className={ui.td}>{r.date}</td>
-                    <td className={ui.td}>{r.checkIn ?? '—'}</td>
-                    <td className={ui.td}>{r.checkOut ?? '—'}</td>
+                    <td className={ui.td}>{r.checkIn ? to12h(r.checkIn) : '—'}</td>
+                    <td className={ui.td}>{r.checkOut ? to12h(r.checkOut) : '—'}</td>
                     <td className={ui.td}><StatusPill status={r.status} /></td>
                   </tr>
                 ))}

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useAuth } from '../../lib/auth';
-import { ui } from '../../lib/ui';
+import { to12h, ui } from '../../lib/ui';
 import { Skeleton } from '../../lib/components';
 import { useFetch } from '../../lib/useFetch';
 
@@ -36,7 +36,7 @@ export default function MyProfile() {
   const meInfo = useFetch<{ employee: { avatarUrl: string | null } | null; shift: Shift | null }>('/api/employees/me');
   const shift = meInfo.data?.shift ?? null;
   const avatarUrl = meInfo.data?.employee?.avatarUrl ?? null;
-  const shiftText = meInfo.loading && !meInfo.data ? '…' : shift ? `${shift.startTime} – ${shift.endTime} (${shift.graceMins}m grace)` : 'Not set';
+  const shiftText = meInfo.loading && !meInfo.data ? '…' : shift ? `${to12h(shift.startTime)} – ${to12h(shift.endTime)} (${shift.graceMins}m grace)` : 'Not set';
   const statsLoading = loading && !data;
   const records = (data ?? []).filter((r) => r.date.startsWith(`${year}-`));
   const present = records.filter((r) => r.status === 'present' || r.status === 'late').length;

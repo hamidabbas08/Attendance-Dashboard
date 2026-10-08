@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { useAuth } from '../lib/auth';
 import { Avatar } from '../lib/components';
 import { P } from '../lib/permissions';
@@ -53,30 +53,72 @@ export function Shell({ children }: { children: ReactNode }) {
   const roleText = me?.isPlatformAdmin ? 'Platform Admin' : me?.roles.join(', ');
   const visible = ITEMS.filter((i) => !i.perm || can(i.perm));
 
+  // Remembered per-browser only (not synced anywhere) — a pure UI convenience.
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => {
+    try {
+      if (localStorage.getItem('sidebar-collapsed') === '1') setCollapsed(true);
+    } catch {
+      // ignore (private browsing / blocked storage)
+    }
+  }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem('sidebar-collapsed', collapsed ? '1' : '0');
+    } catch {
+      // ignore
+    }
+  }, [collapsed]);
+
   const NavLink = ({ i }: { i: Item }) => {
     const active = pathname === i.href;
     return (
       <Link
         href={i.href}
         aria-current={active ? 'page' : undefined}
+        title={collapsed ? i.label : undefined}
         className={`group relative flex items-center gap-2.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-150 ${
           active ? 'bg-accent/10 text-accent' : 'text-muted hover:text-fg hover:bg-white/[0.04]'
-        }`}
+        } ${collapsed ? 'md:justify-center md:px-0 md:w-10 md:mx-auto' : ''}`}
       >
         {active && <span className="absolute left-0 top-1/2 hidden md:block h-5 w-0.5 -translate-y-1/2 rounded-full bg-accent" />}
         <span className={active ? 'text-accent' : 'text-faint group-hover:text-fg transition-colors duration-150'}>{i.icon}</span>
-        {i.label}
+        <span className={collapsed ? 'md:hidden' : ''}>{i.label}</span>
       </Link>
     );
   };
 
   return (
-    <div className="min-h-screen md:grid md:grid-cols-[248px_1fr]">
-      <aside className="bg-sidebar border-b border-line md:border-b-0 md:border-r md:sticky md:top-0 md:h-screen flex flex-col z-20">
+    <div className="min-h-screen md:flex">
+      <aside
+        className={`relative bg-sidebar border-b border-line md:border-b-0 md:border-r md:sticky md:top-0 md:h-screen flex flex-col z-20 md:shrink-0 md:transition-[width] md:duration-200 md:ease-in-out md:overflow-hidden ${
+          collapsed ? 'md:w-[72px]' : 'md:w-[248px]'
+        }`}
+      >
+        {/* Collapse/expand toggle (desktop only) */}
+        <button
+          type="button"
+          onClick={() => setCollapsed((c) => !c)}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className="hidden md:grid absolute top-6 -right-3 h-6 w-6 place-items-center rounded-full border border-line bg-panel text-muted shadow-sm transition-colors duration-150 hover:text-fg hover:bg-white/[0.04] z-30"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={`h-3.5 w-3.5 transition-transform duration-200 ${collapsed ? 'rotate-180' : ''}`}
+          >
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </button>
+
         {/* Brand */}
-        <div className="flex items-center gap-2.5 px-5 pt-5 pb-4">
-          <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent/15 text-accent text-base ring-1 ring-accent/25">🕐</span>
-          <span className="font-bold text-[15px] tracking-tight">Attendance</span>
+        <div className={`flex items-center gap-2.5 px-5 pt-5 pb-4 ${collapsed ? 'md:justify-center md:px-0' : ''}`}>
+          <img src="/logo.svg" alt="Logo" className="h-8 w-8 rounded-lg shrink-0" />
+          <span className={`font-bold text-[15px] tracking-tight ${collapsed ? 'md:hidden' : ''}`}>Attendance</span>
         </div>
 
         {/* Mobile: single horizontally-scrollable row. */}
@@ -91,7 +133,9 @@ export function Shell({ children }: { children: ReactNode }) {
             if (items.length === 0) return null;
             return (
               <div key={g} className="mb-2">
-                <div className="px-3 pt-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-faint/80">{g}</div>
+                <div className={`px-3 pt-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-faint/80 ${collapsed ? 'md:hidden' : ''}`}>
+                  {g}
+                </div>
                 {items.map((i) => <NavLink key={i.href} i={i} />)}
               </div>
             );
@@ -100,26 +144,29 @@ export function Shell({ children }: { children: ReactNode }) {
 
         {/* Account area */}
         <div className="border-t border-line p-3 md:mt-auto">
-          <div className="flex items-center gap-2.5 rounded-xl px-2 py-2">
+          <div className={`flex items-center gap-2.5 rounded-xl px-2 py-2 ${collapsed ? 'md:justify-center md:px-0' : ''}`}>
             <Avatar src={avatarUrl} name={me?.name ?? '?'} size={38} />
-            <div className="min-w-0 flex-1">
+            <div className={`min-w-0 flex-1 ${collapsed ? 'md:hidden' : ''}`}>
               <div className="text-sm font-medium truncate">{me?.name ?? me?.roles.join(', ')}</div>
               <div className="text-muted text-xs truncate capitalize">{roleText}</div>
             </div>
           </div>
           <button
-            className="mt-2 w-full inline-flex items-center justify-center gap-2 rounded-lg border border-line px-3 py-2 text-sm font-medium text-muted transition-colors duration-150 hover:text-fg hover:bg-white/[0.04]"
+            title={collapsed ? 'Sign out' : undefined}
+            className={`mt-2 inline-flex items-center justify-center gap-2 rounded-lg border border-line px-3 py-2 text-sm font-medium text-muted transition-colors duration-150 hover:text-fg hover:bg-white/[0.04] ${
+              collapsed ? 'md:w-10 md:mx-auto md:px-0' : 'w-full'
+            }`}
             onClick={logout}
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0">
               <path d="M15 17l5-5-5-5M20 12H9M9 21H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3" />
             </svg>
-            Sign out
+            <span className={collapsed ? 'md:hidden' : ''}>Sign out</span>
           </button>
         </div>
       </aside>
 
-      <main className="min-w-0 px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+      <main className="min-w-0 flex-1 px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
         <div className="mx-auto w-full max-w-[1500px]">{children}</div>
       </main>
     </div>

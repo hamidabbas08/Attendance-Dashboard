@@ -6,6 +6,7 @@ import { Providers } from './providers';
 export const metadata: Metadata = {
   title: 'Attendance SaaS',
   description: 'Multi-tenant HR / Attendance platform',
+  icons: { icon: '/logo.svg' },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

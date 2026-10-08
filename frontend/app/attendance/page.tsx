@@ -149,9 +149,14 @@ function cellFor(date: string, rec: Record | undefined, holidayName?: string, jo
     if (pendingSignOut(date, rec)) return { t: '•', cls: 'text-amber-300/70' };
     return { t: 'P', cls: 'bg-emerald-600/25 text-emerald-300' };
   }
-  // Otherwise a declared company holiday marks the whole day off for everyone —
-  // shown the same way as a Sunday off (the holiday name is in the tooltip).
-  if (holidayName) return { t: 'Off', cls: 'text-muted/70' };
+  // Otherwise a declared company holiday marks the whole day off for everyone.
+  // Show the holiday's own name (e.g. "Eid") rather than a generic "Off", so
+  // named holidays are distinguishable in the grid — truncated to fit the
+  // narrow day column; the full name is still in the hover tooltip.
+  if (holidayName) {
+    const label = holidayName.length > 3 ? holidayName.slice(0, 3) : holidayName;
+    return { t: label, cls: 'text-muted/70' };
+  }
   if (rec) {
     switch (rec.status) {
       case 'absent':
@@ -277,10 +282,15 @@ function Attendance() {
         }
       />
 
-      {can('attendance:update') && <MarkForm employees={emps} onSaved={() => attendance.reload()} />}
-
-      {can('attendance_rules:create') && (
-        <HolidayManager holidays={holidays.data ?? []} year={year} month={month} onChange={() => holidays.reload()} />
+      {can('attendance:update') && (
+        <MarkForm
+          employees={emps}
+          canDeclareHoliday={can('attendance_rules:create')}
+          onSaved={() => {
+            attendance.reload();
+            holidays.reload();
+          }}
+        />
       )}
 
       {emps.length > 0 && (attendance.data?.length ?? 0) === 0 && !attendance.loading && (
@@ -446,165 +456,71 @@ function PullButton({ onDone }: { onDone: () => void }) {
   );
 }
 
-interface Holiday {
-  id: string;
-  date: string;
-  name: string;
-}
+// Sentinel status value: selecting it in the Status dropdown switches the form
+// into "declare a company holiday" mode (see MarkForm below) instead of
+// recording one employee's attendance.
+const COMPANY_HOLIDAY = '__company_holiday__';
 
-// Declare company holidays: a whole day off for everyone, with a name.
-function HolidayManager({
-  holidays, year, month, onChange,
+function MarkForm({
+  employees, canDeclareHoliday, onSaved,
 }: {
-  holidays: Holiday[]; year: number; month: number | 'all'; onChange: () => void;
+  employees: Employee[]; canDeclareHoliday: boolean; onSaved: () => void;
 }) {
-  const [date, setDate] = useState(today());
-  const [name, setName] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-
-  async function add(e: FormEvent) {
-    e.preventDefault();
-    if (!name.trim()) return;
-    setBusy(true);
-    setError('');
-    try {
-      await api('/api/holidays', { method: 'POST', body: JSON.stringify({ date, name: name.trim() }) });
-      setName('');
-      onChange();
-    } catch (err) {
-      setError((err as ApiError).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-  // Only list holidays that fall in the period currently shown in the grid:
-  // a specific month (YYYY-MM) or the whole selected year.
-  const prefix = month === 'all' ? `${year}-` : `${year}-${pad(month + 1)}-`;
-  const periodLabel = month === 'all' ? `${year}` : `${MONTHS[month]} ${year}`;
-  const sorted = [...holidays].filter((h) => h.date.startsWith(prefix)).sort((a, b) => a.date.localeCompare(b.date));
-
-  return (
-    <div className={ui.card}>
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="font-semibold">Company holidays</h3>
-        <span className="text-muted text-xs">Marks the whole day off for everyone</span>
-      </div>
-      <form className="flex flex-wrap items-end gap-3" onSubmit={add}>
-        <div>
-          <label className={ui.label}>Date</label>
-          <input className={ui.input} type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
-        </div>
-        <div className="min-w-[220px] flex-1">
-          <label className={ui.label}>Holiday name</label>
-          <input
-            className={ui.input}
-            placeholder="e.g. Eid ul-Fitr, Independence Day"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-          />
-        </div>
-        <button className={ui.btn} disabled={busy}>{busy ? 'Saving…' : 'Mark holiday'}</button>
-        {error && <div className={ui.error}>{error}</div>}
-      </form>
-
-      <div className="mt-4 border-t border-line/60 pt-3">
-        <div className="text-muted text-xs mb-2">Declared holidays · {periodLabel}</div>
-        {sorted.length > 0 ? (
-          <div className="flex flex-col divide-y divide-line/50">
-            {sorted.map((h) => (
-              <HolidayRow key={h.id} holiday={h} onChange={onChange} />
-            ))}
-          </div>
-        ) : (
-          <div className="text-muted text-sm">No holidays declared in {periodLabel}.</div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// A single declared holiday — editable (date + name). Holidays aren't removed.
-function HolidayRow({ holiday, onChange }: { holiday: Holiday; onChange: () => void }) {
-  const [editing, setEditing] = useState(false);
-  const [date, setDate] = useState(holiday.date);
-  const [name, setName] = useState(holiday.name);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState('');
-
-  async function save() {
-    if (!name.trim()) return;
-    setBusy(true);
-    setErr('');
-    try {
-      await api('/api/holidays', { method: 'POST', body: JSON.stringify({ date, name: name.trim() }) });
-      // If the date moved, drop the old-date entry so there's just one.
-      if (date !== holiday.date) {
-        await api(`/api/holidays/${holiday.id}`, { method: 'DELETE' });
-      }
-      setEditing(false);
-      onChange();
-    } catch (e) {
-      setErr((e as ApiError).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  if (editing) {
-    return (
-      <div className="flex items-center gap-2 py-2 flex-wrap">
-        <input className={`${ui.input} !w-40`} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-        <input className={`${ui.input} !w-56`} value={name} onChange={(e) => setName(e.target.value)} placeholder="Holiday name" />
-        <button className={`${ui.btn} !py-1.5 !px-3`} onClick={save} disabled={busy}>{busy ? '…' : 'Save'}</button>
-        <button className={`${ui.btnGhost} !py-1.5 !px-3`} onClick={() => { setEditing(false); setDate(holiday.date); setName(holiday.name); }}>Cancel</button>
-        {err && <span className={ui.error}>{err}</span>}
-      </div>
-    );
-  }
-  return (
-    <div className="flex items-center justify-between py-2">
-      <div className="text-sm">
-        <span className="font-semibold">{holiday.date}</span>
-        <span className="text-muted"> · {holiday.name}</span>
-      </div>
-      <button type="button" className="text-xs text-accent hover:underline" onClick={() => setEditing(true)}>
-        Edit
-      </button>
-    </div>
-  );
-}
-
-function MarkForm({ employees, onSaved }: { employees: Employee[]; onSaved: () => void }) {
   const [employeeId, setEmployeeId] = useState('');
   const [date, setDate] = useState(today());
   const [status, setStatus] = useState('present');
+  const [holidayName, setHolidayName] = useState('');
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const isHoliday = status === COMPANY_HOLIDAY;
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     setError('');
+    setBusy(true);
     try {
-      await api('/api/attendance', { method: 'PUT', body: JSON.stringify({ employeeId, date, status }) });
+      if (isHoliday) {
+        if (!holidayName.trim()) return;
+        await api('/api/holidays', { method: 'POST', body: JSON.stringify({ date, name: holidayName.trim() }) });
+        setHolidayName('');
+      } else {
+        await api('/api/attendance', { method: 'PUT', body: JSON.stringify({ employeeId, date, status }) });
+      }
       onSaved();
     } catch (err) {
       setError((err as ApiError).message);
+    } finally {
+      setBusy(false);
     }
   }
 
   return (
     <div className={ui.card}>
       <form className="flex flex-wrap items-end gap-3" onSubmit={submit}>
-        <div className="min-w-[180px]">
-          <label className={ui.label}>Employee</label>
-          <select className={ui.input} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} required>
-            <option value="">Select…</option>
-            {employees.map((e) => (
-              <option key={e.id} value={e.id}>{e.name}</option>
-            ))}
-          </select>
-        </div>
+        {isHoliday ? (
+          // Holiday mode: no specific employee — it's the whole company, so the
+          // Employee picker is replaced by the holiday's name.
+          <div className="min-w-[220px] flex-1">
+            <label className={ui.label}>Holiday name</label>
+            <input
+              className={ui.input}
+              placeholder="e.g. Eid ul-Fitr, Independence Day"
+              value={holidayName}
+              onChange={(e) => setHolidayName(e.target.value)}
+              required
+            />
+          </div>
+        ) : (
+          <div className="min-w-[180px]">
+            <label className={ui.label}>Employee</label>
+            <select className={ui.input} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} required>
+              <option value="">Select…</option>
+              {employees.map((e) => (
+                <option key={e.id} value={e.id}>{e.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
         <div>
           <label className={ui.label}>Date</label>
           <input className={ui.input} type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
@@ -615,9 +531,12 @@ function MarkForm({ employees, onSaved }: { employees: Employee[]; onSaved: () =
             {['present', 'late', 'absent', 'leave', 'half_day', 'off_day', 'holiday'].map((s) => (
               <option key={s} value={s}>{s.replace('_', ' ')}</option>
             ))}
+            {canDeclareHoliday && <option value={COMPANY_HOLIDAY}>Company holiday (everyone)</option>}
           </select>
         </div>
-        <button className={ui.btn}>Mark attendance</button>
+        <button className={ui.btn} disabled={busy}>
+          {busy ? 'Saving…' : isHoliday ? 'Mark holiday' : 'Mark attendance'}
+        </button>
         {error && <div className={ui.error}>{error}</div>}
       </form>
     </div>

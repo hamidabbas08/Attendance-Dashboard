@@ -28,7 +28,6 @@ export function useFetch<T>(path: string, options?: { pollMs?: number }): {
   const [data, setData] = useState<T | null>(cached);
   const [error, setError] = useState<ApiError | null>(null);
   const [loading, setLoading] = useState(cached === null);
-  const [nonce, setNonce] = useState(0);
 
   // Keep a stable ref to the latest path so the background timers/listeners
   // always revalidate the current endpoint.
@@ -66,7 +65,7 @@ export function useFetch<T>(path: string, options?: { pollMs?: number }): {
     return () => {
       active = false;
     };
-  }, [path, nonce]);
+  }, [path]);
 
   // Background auto-refresh: poll on an interval, and revalidate immediately when
   // the tab regains focus or becomes visible — so HR/owner edits reach the
@@ -94,9 +93,13 @@ export function useFetch<T>(path: string, options?: { pollMs?: number }): {
     data,
     error,
     loading,
+    // A silent background refetch — same as the focus/poll revalidation — so
+    // the table keeps showing its current rows while fresh data loads instead
+    // of flashing empty. Earlier this cleared the cache and forced a fresh
+    // mount, which reset `data` to null for a moment; that's exactly the
+    // flash a "Mark attendance" or similar save was causing.
     reload: () => {
-      cache.delete(path);
-      setNonce((n) => n + 1);
+      void revalidate();
     },
   };
 }

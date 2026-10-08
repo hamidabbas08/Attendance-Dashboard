@@ -136,10 +136,12 @@ function daysInRange(from: string, to: string): string[] {
   return out;
 }
 
-function cellFor(date: string, rec: Record | undefined, holidayName?: string, joinDate?: string): { t: string; cls: string } {
-  // Before the employee joined, there is nothing to track — leave the cell blank
-  // (not an absence, not an off-day) so attendance starts from the joining day.
-  if (joinDate && date < joinDate) return { t: '', cls: '' };
+function cellFor(date: string, rec: Record | undefined, holidayName?: string): { t: string; cls: string } {
+  // Attendance history (P/A/leave/half-day) only exists from the employee's
+  // joining day onward — but Off/holiday are calendar facts that apply to
+  // everyone regardless of when they joined, so those still show below even
+  // for a not-yet-joined row (a record can never predate joinDate, since
+  // joinDate is derived as the earlier of the two — see the caller).
   const wd = new Date(`${date}T00:00:00Z`).getUTCDay();
   // Worked attendance always shows, even on a holiday or weekend — so anyone who
   // actually logged time on a declared holiday still gets their P. But present is
@@ -257,6 +259,7 @@ function Attendance() {
         actions={
           <>
             {can('employees:create') && <PullButton onDone={() => attendance.reload()} />}
+            <HolidaysDropdown holidays={holidays.data ?? []} year={year} month={month} />
             <div>
               <label className={ui.label}>Year</label>
               <select className={`${ui.input} !w-auto min-w-[88px] font-medium`} value={year} onChange={(e) => setYear(Number(e.target.value))}>
@@ -365,7 +368,7 @@ function Attendance() {
                   if ((rec?.status === 'present' || rec?.status === 'late') && !pendingSignOut(d, rec)) present += 1;
                   if (!hol && rec?.status === 'absent') absent += 1;
                 }
-                const cell = cellFor(d, rec, hol, joinDate);
+                const cell = cellFor(d, rec, hol);
                 return { d, ...cell, title: cellTitle(e.name, d, cell.t, rec, hol) };
               });
               const pct = present + absent > 0 ? Math.round((present / (present + absent)) * 100) : 0;
@@ -422,6 +425,61 @@ function Attendance() {
         <b>L</b> leave · <b>½</b> half day · blank = not recorded.
       </p>
     </>
+  );
+}
+
+// Read-only list of declared holidays, scoped to whatever year/month the grid
+// is currently showing — a dropdown instead of a dedicated card, since the
+// grid itself already shows each holiday's name on its day now. Creating a
+// holiday still happens through the Mark Attendance form above.
+function HolidaysDropdown({
+  holidays, year, month,
+}: {
+  holidays: { date: string; name: string }[]; year: number; month: number | 'all';
+}) {
+  const [open, setOpen] = useState(false);
+  const prefix = month === 'all' ? `${year}-` : `${year}-${pad(month + 1)}-`;
+  const periodLabel = month === 'all' ? `${year}` : `${MONTHS[month]} ${year}`;
+  const sorted = [...holidays]
+    .filter((h) => h.date.startsWith(prefix))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  return (
+    <div className="relative">
+      <label className={ui.label}>&nbsp;</label>
+      <button
+        type="button"
+        className={`${ui.btnGhost} !py-2.5 whitespace-nowrap`}
+        onClick={() => setOpen((o) => !o)}
+      >
+        Holidays · {sorted.length}
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 z-50 mt-1 w-72 max-h-80 overflow-y-auto surface p-3 shadow-xl">
+            <div className="text-muted text-xs mb-2">Declared holidays · {periodLabel}</div>
+            {sorted.length > 0 ? (
+              <div className="flex flex-col divide-y divide-line/50">
+                {sorted.map((h) => {
+                  const wd = WD[new Date(`${h.date}T00:00:00Z`).getUTCDay()];
+                  return (
+                    <div key={h.date} className="py-2 text-sm flex items-center justify-between gap-3">
+                      <span className="font-semibold whitespace-nowrap">
+                        {h.date} <span className="text-muted font-normal">({wd})</span>
+                      </span>
+                      <span className="text-muted truncate">{h.name}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-muted text-sm">No holidays declared in {periodLabel}.</div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 

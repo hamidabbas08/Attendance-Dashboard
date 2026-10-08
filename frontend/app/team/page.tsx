@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { api, ApiError } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { Avatar, EmptyState, Guard, PageHeader, SectionCard, SegTabs, StatusBadge, TableSkeleton } from '../../lib/components';
@@ -52,7 +53,6 @@ function Team() {
   const [filter, setFilter] = useState<TeamFilter>('active');
 
   const canRole = can('users:update');
-  const canEdit = can('employees:update');
 
   const loading = employees.loading && !employees.data;
   const all = employees.data ?? [];
@@ -82,7 +82,7 @@ function Team() {
       />
 
       {loading ? (
-        <TableSkeleton rows={8} cols={5} />
+        <TableSkeleton rows={8} cols={4} />
       ) : (
         <SectionCard bodyClassName="!p-0">
           {roster.length === 0 ? (
@@ -101,7 +101,6 @@ function Team() {
                     <th className={ui.th}>Email</th>
                     <th className={ui.th}>Role</th>
                     <th className={ui.th}>Status</th>
-                    {canEdit && <th className={`${ui.th} text-right`}>Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -111,7 +110,6 @@ function Team() {
                       employee={e}
                       isSelf={e.id === me?.employeeId}
                       canRole={canRole}
-                      canEdit={canEdit}
                       onChange={() => employees.reload()}
                     />
                   ))}
@@ -126,15 +124,11 @@ function Team() {
 }
 
 function TeamRow({
-  employee, isSelf, canRole, canEdit, onChange,
+  employee, isSelf, canRole, onChange,
 }: {
   employee: Employee; isSelf: boolean;
-  canRole: boolean; canEdit: boolean; onChange: () => void;
+  canRole: boolean; onChange: () => void;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(employee.name);
-  const [email, setEmail] = useState(employee.email);
-  const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
   async function patch(body: Record<string, unknown>) {
@@ -144,34 +138,27 @@ function TeamRow({
       onChange();
     } catch (e) { setErr((e as ApiError).message); throw e; }
   }
-  async function saveEdit() {
-    setBusy(true);
-    try { await patch({ name, email }); setEditing(false); } catch { /* shown */ } finally { setBusy(false); }
-  }
 
   return (
     <tr className="transition-colors duration-150 hover:bg-white/[0.025]">
       <td className={`${ui.td} whitespace-nowrap`}>
         <div className="flex items-center gap-2.5">
           <Avatar src={employee.avatarUrl} name={employee.name} size={32} />
-          {editing ? (
-            <input className={`${ui.input} !w-44`} value={name} onChange={(e) => setName(e.target.value)} />
-          ) : (
-            <span className="font-medium">
-              <Link href={`/employee/${employee.id}`} className="hover:text-accent transition-colors duration-150">
-                {employee.name}
-              </Link>
-              {isSelf && <span className="text-faint font-normal"> (you)</span>}
-            </span>
-          )}
+          <span className="font-medium">
+            <Link href={`/employee/${employee.id}`} className="hover:text-accent transition-colors duration-150">
+              {employee.name}
+            </Link>
+            {isSelf && <span className="text-faint font-normal"> (you)</span>}
+          </span>
         </div>
       </td>
-      <td className={`${ui.td} text-muted`}>
-        {editing ? <input className={`${ui.input} !w-56`} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email" /> : (employee.email || '—')}
-      </td>
+      <td className={`${ui.td} text-muted`}>{employee.email || '—'}</td>
       <td className={ui.td}>
         {canRole && !isSelf ? (
-          <MultiRoleSelect selected={rolesOf(employee)} onChange={(roles) => patch({ roles })} />
+          <>
+            <MultiRoleSelect selected={rolesOf(employee)} onChange={(roles) => patch({ roles })} />
+            {err && <div className={ui.error}>{err}</div>}
+          </>
         ) : (
           <div className="flex flex-wrap gap-1">
             {rolesOf(employee).map((r) => (
@@ -189,27 +176,18 @@ function TeamRow({
           <StatusBadge status="present" label="Active" />
         )}
       </td>
-      {canEdit && (
-        <td className={`${ui.td} text-right`}>
-          <div className="flex items-center justify-end gap-2">
-            {editing ? (
-              <>
-                <button className={`${ui.btn} !py-1.5 !px-3`} onClick={saveEdit} disabled={busy}>{busy ? '…' : 'Save'}</button>
-                <button className={`${ui.btnGhost} !py-1.5 !px-3`} onClick={() => { setEditing(false); setName(employee.name); setEmail(employee.email); }}>Cancel</button>
-              </>
-            ) : (
-              <button className={`${ui.btnSecondary} !py-1.5 !px-3`} onClick={() => setEditing(true)}>Edit</button>
-            )}
-          </div>
-          {err && <div className={`${ui.error} text-right`}>{err}</div>}
-        </td>
-      )}
     </tr>
   );
 }
 
 // A compact multi-select: a dropdown of checkboxes so a person can hold several
 // roles/titles at once. Each toggle saves immediately.
+//
+// The panel is rendered into a portal on <body>, positioned via the trigger's
+// own bounding rect, instead of being an in-flow absolutely-positioned child
+// of the table row. A row-local absolute child gets clipped by the table's
+// horizontal-scroll wrapper (overflow-x-auto implies overflow-y clipping too),
+// which is what forced scrolling the table to see the full checkbox list.
 function MultiRoleSelect({
   selected,
   onChange,
@@ -217,33 +195,84 @@ function MultiRoleSelect({
   selected: string[];
   onChange: (roles: string[]) => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ left: number; top?: number; bottom?: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+
   const toggle = (value: string) => {
     const next = selected.includes(value)
       ? selected.filter((r) => r !== value)
       : [...selected, value];
     onChange(next);
   };
+
+  // The panel's max-h-64 + padding caps it at ~280px tall. Open downward by
+  // default, but flip above the trigger when there isn't ~280px of room below
+  // (and there's more room above) — otherwise it runs off the bottom of the
+  // viewport with no page scroll to reach it, as happened near the end of the
+  // table.
+  function openMenu() {
+    const r = btnRef.current?.getBoundingClientRect();
+    if (!r) { setOpen(true); return; }
+    const PANEL_H = 280;
+    const spaceBelow = window.innerHeight - r.bottom;
+    const openUp = spaceBelow < PANEL_H && r.top > spaceBelow;
+    setPos(
+      openUp
+        ? { left: r.left, bottom: window.innerHeight - r.top + 4 }
+        : { left: r.left, top: r.bottom + 4 },
+    );
+    setOpen(true);
+  }
+
+  // Close on scroll/resize rather than trying to keep it pinned to the
+  // trigger — simplest way to avoid a stale/misaligned panel.
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
+  }, [open]);
+
   const summary = selected.length ? selected.map(roleLabel).join(', ') : 'Select roles…';
+
   return (
-    <details className="relative">
-      <summary
-        className={`${ui.input} !w-52 cursor-pointer truncate list-none [&::-webkit-details-marker]:hidden`}
+    <>
+      <button
+        type="button"
+        ref={btnRef}
+        onClick={() => (open ? setOpen(false) : openMenu())}
+        className={`${ui.input} !w-52 cursor-pointer truncate text-left`}
         title={summary}
       >
         {summary}
-      </summary>
-      <div className="absolute z-20 mt-1 w-56 max-h-64 overflow-y-auto surface p-2 shadow-xl">
-        {ROLE_OPTIONS.map((o) => (
-          <label
-            key={o.value}
-            className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-panel2 cursor-pointer text-sm"
+      </button>
+      {open && pos && createPortal(
+        <>
+          {/* Click-outside catcher */}
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div
+            className="fixed z-50 w-56 max-h-64 overflow-y-auto surface p-2 shadow-xl"
+            style={{ left: pos.left, top: pos.top, bottom: pos.bottom }}
           >
-            <input type="checkbox" checked={selected.includes(o.value)} onChange={() => toggle(o.value)} />
-            {o.label}
-          </label>
-        ))}
-      </div>
-    </details>
+            {ROLE_OPTIONS.map((o) => (
+              <label
+                key={o.value}
+                className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-panel2 cursor-pointer text-sm"
+              >
+                <input type="checkbox" checked={selected.includes(o.value)} onChange={() => toggle(o.value)} />
+                {o.label}
+              </label>
+            ))}
+          </div>
+        </>,
+        document.body,
+      )}
+    </>
   );
 }
 

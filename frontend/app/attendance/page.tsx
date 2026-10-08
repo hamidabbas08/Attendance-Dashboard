@@ -248,6 +248,13 @@ function Attendance() {
     left,
     minWidth: width,
     width,
+    // `position: sticky` cells inside a `border-collapse` table are prone to a
+    // Chromium rendering bug where a scrolled-past day column bleeds through
+    // to the left of the sticky column during/after a horizontal scroll —
+    // `isolation: isolate` gives the cell its own stacking/paint context so
+    // nothing from outside it can show through.
+    isolation: 'isolate',
+    zIndex: 1,
   });
   const dayCell: CSSProperties = stretch ? { minWidth: W.day } : { minWidth: W.day, width: W.day };
 

@@ -198,6 +198,7 @@ function MultiRoleSelect({
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ left: number; top?: number; bottom?: number } | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const toggle = (value: string) => {
     const next = selected.includes(value)
@@ -226,10 +227,15 @@ function MultiRoleSelect({
   }
 
   // Close on scroll/resize rather than trying to keep it pinned to the
-  // trigger — simplest way to avoid a stale/misaligned panel.
+  // trigger — simplest way to avoid a stale/misaligned panel. Scrolling the
+  // panel's own (possibly overflowing) checkbox list must NOT count as a
+  // page scroll, or the dropdown closes the moment you try to scroll it.
   useEffect(() => {
     if (!open) return;
-    const close = () => setOpen(false);
+    const close = (e: Event) => {
+      if (panelRef.current && e.target instanceof Node && panelRef.current.contains(e.target)) return;
+      setOpen(false);
+    };
     window.addEventListener('scroll', close, true);
     window.addEventListener('resize', close);
     return () => {
@@ -256,6 +262,7 @@ function MultiRoleSelect({
           {/* Click-outside catcher */}
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div
+            ref={panelRef}
             className="fixed z-50 w-56 max-h-64 overflow-y-auto surface p-2 shadow-xl"
             style={{ left: pos.left, top: pos.top, bottom: pos.bottom }}
           >

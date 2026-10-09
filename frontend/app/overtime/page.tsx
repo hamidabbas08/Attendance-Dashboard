@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { Fragment, useMemo, useState } from 'react';
 import { api, ApiError } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
@@ -395,7 +396,13 @@ function TeamOvertime() {
                         <div className="flex items-center gap-2.5">
                           <span className="text-faint w-3">{open === r.employee.id ? '▾' : '▸'}</span>
                           <Avatar src={r.employee.avatarUrl} name={r.employee.name} size={28} />
-                          <span className="font-medium">{r.employee.name}</span>
+                          <Link
+                            href={`/employee/${r.employee.id}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="font-medium hover:text-accent transition-colors duration-150"
+                          >
+                            {r.employee.name}
+                          </Link>
                         </div>
                       </td>
                       <td className={`${ui.td} text-right tabular-nums`}>{r.daysWithTimes}</td>

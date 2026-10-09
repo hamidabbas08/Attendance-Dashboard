@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { api, ApiError } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
@@ -110,7 +111,9 @@ function ShiftRow({
       <td className={`${ui.td} whitespace-nowrap`}>
         <div className="flex items-center gap-2.5">
           <Avatar src={employee.avatarUrl} name={employee.name} size={32} />
-          <span className="font-medium">{employee.name}</span>
+          <Link href={`/employee/${employee.id}`} className="font-medium hover:text-accent transition-colors duration-150">
+            {employee.name}
+          </Link>
         </div>
       </td>
       <td className={ui.td}>

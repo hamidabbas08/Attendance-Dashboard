@@ -20,7 +20,10 @@ reportsRouter.get(
     const employees = repo
       .listEmployees()
       .filter((e) => e.status === 'active' || withRecords.has(e.id));
-    res.json(buildYearMatrix(employees, records, year));
+    const holidayDates = new Set(
+      repo.listHolidays().filter((h) => h.date.startsWith(`${year}-`)).map((h) => h.date),
+    );
+    res.json(buildYearMatrix(employees, records, year, holidayDates));
   },
 );
 

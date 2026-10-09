@@ -1,9 +1,11 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { StatusPill, Guard, PageHeader, SectionCard, StatTile, TableSkeleton, TilesSkeleton } from '../../lib/components';
+import { StatusPill, Guard, PageHeader, SectionCard, SegTabs, StatTile, TableSkeleton, TilesSkeleton } from '../../lib/components';
 import { displayStatus, tally } from '../../lib/attendance';
+import { useAuth } from '../../lib/auth';
 import { P } from '../../lib/permissions';
+import { ScreenActivityTab } from '../../lib/scrinActivity';
 import { to12h, ui } from '../../lib/ui';
 import { useFetch } from '../../lib/useFetch';
 
@@ -23,6 +25,7 @@ const MONTHS = [
 interface Shift { name: string; startTime: string; endTime: string; graceMins: number }
 
 function MyAttendance() {
+  const { me } = useAuth();
   const { data, loading } = useFetch<Record[]>('/api/attendance/me');
   const meInfo = useFetch<{ shift: Shift | null }>('/api/employees/me');
   const holidays = useFetch<{ date: string }[]>('/api/holidays');
@@ -31,6 +34,7 @@ function MyAttendance() {
   const all = data ?? [];
   const curYear = new Date().getUTCFullYear();
   const [year, setYear] = useState(curYear);
+  const [tab, setTab] = useState<'attendance' | 'activity'>('attendance');
 
   const years = useMemo(() => {
     const s = new Set<number>([curYear]);
@@ -54,14 +58,16 @@ function MyAttendance() {
         title="My Attendance"
         description="Your yearly and monthly present / absent summary."
         actions={
-          <div>
-            <label className={ui.label}>Year</label>
-            <select className={`${ui.input} !w-auto min-w-[104px] font-medium`} value={year} onChange={(e) => setYear(Number(e.target.value))}>
-              {years.map((y) => (
-                <option key={y} value={y}>{y}</option>
-              ))}
-            </select>
-          </div>
+          tab === 'attendance' ? (
+            <div>
+              <label className={ui.label}>Year</label>
+              <select className={`${ui.input} !w-auto min-w-[104px] font-medium`} value={year} onChange={(e) => setYear(Number(e.target.value))}>
+                {years.map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+          ) : undefined
         }
       />
 
@@ -82,7 +88,20 @@ function MyAttendance() {
         </div>
       </div>
 
-      {loading && !data ? (
+      <div className="mb-5">
+        <SegTabs
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: 'attendance', label: 'Attendance' },
+            { value: 'activity', label: 'Screen Activity' },
+          ]}
+        />
+      </div>
+
+      {tab === 'activity' ? (
+        me && me.employeeId && <ScreenActivityTab employeeId={me.employeeId} />
+      ) : loading && !data ? (
         <>
           <TilesSkeleton count={4} />
           <TableSkeleton rows={6} cols={4} />

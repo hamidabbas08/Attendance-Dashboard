@@ -2,11 +2,16 @@
 
 import { ReactNode, useEffect, useState } from 'react';
 import { useAuthStore } from '../lib/store';
+import { Spinner } from '../lib/components';
 import { Login } from './login';
 import { Shell } from './shell';
 
 function Loading() {
-  return <div className="max-w-sm mx-auto mt-20 text-muted">Loading…</div>;
+  return (
+    <div className="flex items-center justify-center mt-28">
+      <Spinner size={28} />
+    </div>
+  );
 }
 
 // Human-readable messages for the error codes the backend redirects with.

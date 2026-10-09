@@ -13,6 +13,7 @@ import { companiesRouter } from './modules/companies.routes';
 import { employeesRouter } from './modules/employees.routes';
 import { holidaysRouter } from './modules/holidays.routes';
 import { reportsRouter } from './modules/reports.routes';
+import { scrinRouter } from './modules/scrin.routes';
 import { shiftsRouter } from './modules/shifts.routes';
 import { slackRouter, slackWebhookRouter } from './modules/slack.routes';
 import { usersRouter } from './modules/users.routes';
@@ -50,6 +51,7 @@ export function createApp(): Express {
   app.use('/api/attendance', authenticate, attendanceRouter);
   app.use('/api/holidays', authenticate, holidaysRouter);
   app.use('/api/reports', authenticate, reportsRouter);
+  app.use('/api/scrin', authenticate, scrinRouter);
   app.use('/api/slack', authenticate, slackRouter);
   app.use('/api/claude', authenticate, claudeRouter);
   app.use('/api/audit', authenticate, auditRouter);

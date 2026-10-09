@@ -42,6 +42,12 @@ export const config = {
   // creates a company + owner; later members auto-join as employees. Set
   // SLACK_AUTO_PROVISION=false to require workspaces to be linked manually.
   slackAutoProvision: (process.env.SLACK_AUTO_PROVISION ?? 'true').toLowerCase() !== 'false',
+  // scrin.io (formerly ScreenshotMonitor) — per-employee time/activity/screenshot
+  // data, shown on the employee detail page's "Screen Activity" tab. Optional;
+  // the tab shows a "not connected" state when unset. This must be an
+  // OWNER-level token (My Account → scrin.io API v2 → X-SSM-Token) — an
+  // employee-level token only sees that one person's own data.
+  scrinApiKey: process.env.SCRIN_IO_API_KEY ?? '',
   anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? '',
   claudeModel: process.env.CLAUDE_MODEL ?? 'claude-sonnet-5',
   corsOrigin: process.env.CORS_ORIGIN ?? 'http://localhost:5173',

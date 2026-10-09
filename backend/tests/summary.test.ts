@@ -51,4 +51,20 @@ describe('buildYearMatrix', () => {
     expect(m.employees.map((e) => e.name)).toEqual(['Alice', 'Bob', 'Zoe']);
     expect(m.employees[2].totals.total).toBe(0);
   });
+
+  it('reclassifies a non-worked record on a declared holiday as "holiday", not its literal status', () => {
+    // Mirrors the Attendance grid's own rule (cellFor): an absence/leave/etc.
+    // that lands on a company holiday is a day off, not an absence — but
+    // worked time (present/late) still counts as itself even on a holiday.
+    const withHoliday = [
+      ...records,
+      rec('e1', '2026-03-12', 'present'), // worked ON a holiday — still present
+    ];
+    const holidayDates = new Set(['2026-03-10', '2026-03-12']);
+    const m = buildYearMatrix(employees, withHoliday, 2026, holidayDates);
+    const alice = m.employees.find((e) => e.name === 'Alice')!;
+    expect(alice.months[2].absent).toBe(0); // the Mar 10 absence is now a holiday
+    expect(alice.months[2].holiday).toBe(1);
+    expect(alice.months[2].present).toBe(1); // Mar 12 — worked, unaffected
+  });
 });

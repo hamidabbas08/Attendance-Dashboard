@@ -108,7 +108,11 @@ function CompanyDashboard({ year, name, company }: { year: number; name: string;
               <tbody>
                 {topAbsent.map((e) => (
                   <tr key={e.employeeId} className="transition-colors duration-150 hover:bg-white/[0.025]">
-                    <td className={`${ui.td} font-medium`}>{e.name}</td>
+                    <td className={`${ui.td} font-medium`}>
+                      <Link href={`/employee/${e.employeeId}`} className="hover:text-accent transition-colors duration-150">
+                        {e.name}
+                      </Link>
+                    </td>
                     <td className={`${ui.td} text-right tabular-nums text-emerald-300 font-semibold`}>{attended(e.totals)}</td>
                     <td className={`${ui.td} text-right tabular-nums text-red-300 font-semibold`}>{e.totals.absent}</td>
                     <td className={`${ui.td} text-right tabular-nums`}>{rate(e.totals) ?? 0}%</td>

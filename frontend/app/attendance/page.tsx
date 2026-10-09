@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { CSSProperties, FormEvent, useMemo, useState } from 'react';
 import { api, ApiError } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
@@ -310,7 +311,17 @@ function Attendance() {
         </div>
       )}
 
-      <div className={`${ui.card} overflow-x-auto p-0`}>
+      {/*
+        Two nested overflow boundaries, not one: Safari/iOS has a documented bug
+        where a single `overflow-x: auto` element doesn't reliably clip
+        `position: sticky` table cells during/after a scroll gesture — a
+        scrolled-past column can visibly bleed past the sticky column's edge.
+        An outer `overflow-hidden` wrapper (which also owns the card's rounded
+        corners) plus an inner plain `overflow-x-auto` for the actual scrolling
+        gives Safari a hard clip it respects, where one boundary alone didn't.
+      */}
+      <div className={`${ui.card} overflow-hidden p-0`}>
+      <div className="overflow-x-auto">
         <table
           className="border-collapse text-xs"
           style={stretch ? { width: '100%' } : { minWidth: SUMMARY_WIDTH + days.length * W.day }}
@@ -386,7 +397,9 @@ function Attendance() {
                   <td className={`px-3 py-1.5 border-b border-line whitespace-nowrap ${stickyBg}`} style={stickyTh(LEFT.name, W.name)}>
                     <div className="flex items-center gap-2">
                       <Avatar src={e.avatarUrl} name={e.name} size={22} />
-                      <span className="truncate">{e.name}</span>
+                      <Link href={`/employee/${e.id}`} className="truncate hover:text-accent transition-colors duration-150">
+                        {e.name}
+                      </Link>
                     </div>
                   </td>
                   <td className={`text-center py-1.5 border-b border-line font-semibold text-emerald-300 ${stickyBg}`} style={stickyTh(LEFT.present, W.present)}>
@@ -423,6 +436,7 @@ function Attendance() {
             )}
           </tbody>
         </table>
+      </div>
       </div>
 
       <p className="text-muted text-xs mt-2">

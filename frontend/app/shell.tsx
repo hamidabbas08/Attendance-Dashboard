@@ -91,11 +91,13 @@ export function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen md:flex">
       <aside
-        className={`relative bg-sidebar border-b border-line md:border-b-0 md:border-r md:sticky md:top-0 md:h-screen flex flex-col z-20 md:shrink-0 md:transition-[width] md:duration-200 md:ease-in-out md:overflow-hidden ${
+        className={`relative bg-sidebar border-b border-line md:border-b-0 md:border-r md:sticky md:top-0 md:h-screen flex flex-col z-20 md:shrink-0 md:transition-[width] md:duration-200 md:ease-in-out ${
           collapsed ? 'md:w-[72px]' : 'md:w-[248px]'
         }`}
       >
-        {/* Collapse/expand toggle (desktop only) */}
+        {/* Collapse/expand toggle (desktop only) — a sibling of the
+            overflow-hidden content wrapper below, not a child of it, so the
+            half-outside-the-edge circle isn't clipped and stays visible. */}
         <button
           type="button"
           onClick={() => setCollapsed((c) => !c)}
@@ -115,6 +117,7 @@ export function Shell({ children }: { children: ReactNode }) {
           </svg>
         </button>
 
+        <div className="flex flex-col flex-1 min-h-0 md:overflow-hidden">
         {/* Brand */}
         <div className={`flex items-center gap-2.5 px-5 pt-5 pb-4 ${collapsed ? 'md:justify-center md:px-0' : ''}`}>
           <img src="/logo.svg" alt="Logo" className="h-8 w-8 rounded-lg shrink-0" />
@@ -163,6 +166,7 @@ export function Shell({ children }: { children: ReactNode }) {
             </svg>
             <span className={collapsed ? 'md:hidden' : ''}>Sign out</span>
           </button>
+        </div>
         </div>
       </aside>
 

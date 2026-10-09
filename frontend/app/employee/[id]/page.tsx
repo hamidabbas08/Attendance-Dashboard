@@ -3,9 +3,10 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
-import { Avatar, Guard, SectionCard, StatTile, StatusPill, TableSkeleton, TilesSkeleton } from '../../../lib/components';
+import { Avatar, Guard, SectionCard, SegTabs, StatTile, StatusPill, TableSkeleton, TilesSkeleton } from '../../../lib/components';
 import { displayStatus, tally } from '../../../lib/attendance';
 import { P } from '../../../lib/permissions';
+import { ScreenActivityTab } from '../../../lib/scrinActivity';
 import { to12h, ui } from '../../../lib/ui';
 import { useFetch } from '../../../lib/useFetch';
 
@@ -44,6 +45,7 @@ function EmployeeAttendance() {
   const all = data ?? [];
   const curYear = new Date().getUTCFullYear();
   const [year, setYear] = useState(curYear);
+  const [tab, setTab] = useState<'attendance' | 'activity'>('attendance');
 
   const years = useMemo(() => {
     const s = new Set<number>([curYear]);
@@ -75,17 +77,32 @@ function EmployeeAttendance() {
             {emp.data?.status === 'terminated' && <span className="pill pill-absent">terminated</span>}
           </div>
         </div>
-        <div className="ml-auto">
-          <label className={ui.label}>Year</label>
-          <select className={ui.input} value={year} onChange={(e) => setYear(Number(e.target.value))}>
-            {years.map((y) => (
-              <option key={y} value={y}>{y}</option>
-            ))}
-          </select>
-        </div>
+        {tab === 'attendance' && (
+          <div className="ml-auto">
+            <label className={ui.label}>Year</label>
+            <select className={ui.input} value={year} onChange={(e) => setYear(Number(e.target.value))}>
+              {years.map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
-      {loading && !data ? (
+      <div className="mb-5">
+        <SegTabs
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: 'attendance', label: 'Attendance' },
+            { value: 'activity', label: 'Screen Activity' },
+          ]}
+        />
+      </div>
+
+      {tab === 'activity' ? (
+        <ScreenActivityTab employeeId={id} />
+      ) : loading && !data ? (
         <>
           <TilesSkeleton count={4} />
           <TableSkeleton rows={6} cols={4} />
@@ -158,6 +175,7 @@ function EmployeeAttendance() {
     </>
   );
 }
+
 
 export default function Page() {
   return (

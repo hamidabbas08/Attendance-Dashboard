@@ -9,7 +9,11 @@ function required(name: string, fallback?: string): string {
 
 export const config = {
   env: process.env.NODE_ENV ?? 'development',
-  port: Number(process.env.PORT ?? 4000),
+  // When the backend and frontend run as one service (e.g. a single Railway
+  // service), the frontend takes the public $PORT and the backend listens on a
+  // fixed internal port the frontend proxies to. Set BACKEND_PORT to pin it
+  // (default 4000); a backend-only deploy can just use $PORT instead.
+  port: Number(process.env.BACKEND_PORT ?? process.env.PORT ?? 4000),
   jwtSecret: required('JWT_SECRET', 'dev-insecure-secret-change-me'),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '8h',
   dataAdapter: (process.env.DATA_ADAPTER ?? 'memory') as 'memory' | 'prisma',

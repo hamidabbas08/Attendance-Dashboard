@@ -7,6 +7,7 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { attendanceRouter } from './modules/attendance.routes';
 import { attendanceRulesRouter } from './modules/attendanceRules.routes';
 import { auditRouter } from './modules/audit.routes';
+import { breaksRouter } from './modules/breaks.routes';
 import { authRouter } from './modules/auth.routes';
 import { claudeRouter } from './modules/claude.routes';
 import { companiesRouter } from './modules/companies.routes';
@@ -50,6 +51,7 @@ export function createApp(): Express {
   app.use('/api/attendance-rules', authenticate, attendanceRulesRouter);
   app.use('/api/attendance', authenticate, attendanceRouter);
   app.use('/api/holidays', authenticate, holidaysRouter);
+  app.use('/api/breaks', authenticate, breaksRouter);
   app.use('/api/reports', authenticate, reportsRouter);
   app.use('/api/scrin', authenticate, scrinRouter);
   app.use('/api/slack', authenticate, slackRouter);

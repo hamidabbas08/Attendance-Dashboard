@@ -4,6 +4,7 @@ import {
   AttendanceRecord,
   AttendanceRule,
   AuditLog,
+  BreakRecord,
   Company,
   Employee,
   Holiday,
@@ -33,6 +34,7 @@ export class InMemoryStore {
   slackChannels = new Map<string, SlackChannel>();
   attendanceEvents = new Map<string, AttendanceEvent>();
   auditLogs = new Map<string, AuditLog>();
+  breaks = new Map<string, BreakRecord>();
 
   id(): string {
     return randomUUID();
@@ -54,6 +56,7 @@ export class InMemoryStore {
     this.slackChannels.clear();
     this.attendanceEvents.clear();
     this.auditLogs.clear();
+    this.breaks.clear();
   }
 }
 

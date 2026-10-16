@@ -64,6 +64,20 @@ async function main(): Promise<void> {
     // eslint-disable-next-line no-console
     console.log('Slack member sync every 30m.');
   }
+
+  // scrin.io pause monitor: when someone turns their screen activity off, DM
+  // them and open a break; when they turn it back on, close it. Needs a scrin.io
+  // token; DMs also need a Slack bot token with chat:write + im:write.
+  const { scrinEnabled } = await import('./scrin/service');
+  if (scrinEnabled && config.scrinPollSeconds > 0) {
+    const { runScrinMonitor } = await import('./scrin/monitor');
+    const scrinTick = () =>
+      runScrinMonitor().catch((e) => console.error('scrin.io monitor error:', (e as Error).message));
+    setTimeout(scrinTick, 6000);
+    setInterval(scrinTick, config.scrinPollSeconds * 1000);
+    // eslint-disable-next-line no-console
+    console.log(`scrin.io pause monitor every ${config.scrinPollSeconds}s.`);
+  }
 }
 
 main().catch((err) => {

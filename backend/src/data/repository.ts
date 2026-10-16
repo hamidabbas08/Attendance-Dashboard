@@ -14,6 +14,7 @@ import {
   AttendanceRecord,
   AttendanceRule,
   AuditLog,
+  BreakRecord,
   Company,
   Employee,
   Holiday,
@@ -435,5 +436,74 @@ export class TenantRepository {
     return [...this.store.auditLogs.values()]
       .filter((l) => l.companyId === companyId)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+
+  // ------------------------------------------------------------------ Breaks
+
+  /** Breaks for one employee, newest first; optionally filtered to one date. */
+  listBreaks(filter: { employeeId: string; date?: string }): BreakRecord[] {
+    const companyId = this.requireCompanyId();
+    return [...this.store.breaks.values()]
+      .filter(
+        (b) =>
+          b.companyId === companyId &&
+          b.employeeId === filter.employeeId &&
+          (!filter.date || b.date === filter.date),
+      )
+      .sort((a, b) => b.startTs - a.startTs);
+  }
+
+  /** Every break in the company, newest first; optional employee/date filter. */
+  listCompanyBreaks(filter: { employeeId?: string; date?: string } = {}): BreakRecord[] {
+    const companyId = this.requireCompanyId();
+    return [...this.store.breaks.values()]
+      .filter(
+        (b) =>
+          b.companyId === companyId &&
+          (!filter.employeeId || b.employeeId === filter.employeeId) &&
+          (!filter.date || b.date === filter.date),
+      )
+      .sort((a, b) => b.startTs - a.startTs);
+  }
+
+  /** The currently-open (unresolved) break for an employee, if any. */
+  findOpenBreak(employeeId: string): BreakRecord | undefined {
+    const companyId = this.requireCompanyId();
+    return [...this.store.breaks.values()].find(
+      (b) => b.companyId === companyId && b.employeeId === employeeId && b.endTs === null,
+    );
+  }
+
+  createBreak(
+    data: Omit<BreakRecord, 'id' | 'companyId' | 'endTs' | 'endLocal' | 'createdAt' | 'updatedAt'> & {
+      endTs?: number | null;
+      endLocal?: string | null;
+    },
+  ): BreakRecord {
+    const companyId = this.requireCompanyId();
+    const now = this.store.now();
+    const record: BreakRecord = {
+      ...data,
+      companyId,
+      endTs: data.endTs ?? null,
+      endLocal: data.endLocal ?? null,
+      id: this.store.id(),
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.store.breaks.set(record.id, record);
+    return record;
+  }
+
+  /** Close an open break at the given moment (resume). No-op if already closed. */
+  closeBreak(id: string, endTs: number, endLocal: string): BreakRecord | undefined {
+    const companyId = this.requireCompanyId();
+    const record = this.store.breaks.get(id);
+    if (!record || record.companyId !== companyId) return undefined;
+    if (record.endTs !== null) return record;
+    record.endTs = endTs;
+    record.endLocal = endLocal;
+    record.updatedAt = this.store.now();
+    return record;
   }
 }

@@ -30,6 +30,7 @@ const COLLECTIONS = [
   'slackChannels',
   'attendanceEvents',
   'auditLogs',
+  'breaks',
 ] as const;
 type Collection = (typeof COLLECTIONS)[number];
 

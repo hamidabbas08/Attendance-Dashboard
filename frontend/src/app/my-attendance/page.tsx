@@ -8,6 +8,7 @@ import { P } from '../../lib/permissions';
 import { ScreenActivityTab } from '../../components/scrin';
 import { ui } from '../../lib/ui';
 import { useFetch } from '../../lib/useFetch';
+import { BreaksCard } from '../../components/my-attendance/BreaksCard';
 import { MonthlyBreakdownTable } from '../../components/my-attendance/MonthlyBreakdownTable';
 import { RecordsTable } from '../../components/my-attendance/RecordsTable';
 import { ShiftCard } from '../../components/my-attendance/ShiftCard';
@@ -102,6 +103,8 @@ function MyAttendance() {
         <StatTile label="On leave" value={yearly.leave} accent="#38bdf8" />
         <StatTile label="Attendance %" value={`${yearly.pct}%`} accent="#a78bfa" />
       </div>
+
+      <BreaksCard />
 
       <MonthlyBreakdownTable year={year} months={MONTHS} byMonth={byMonth} />
 

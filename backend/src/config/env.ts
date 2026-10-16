@@ -52,6 +52,9 @@ export const config = {
   // OWNER-level token (My Account → scrin.io API v2 → X-SSM-Token) — an
   // employee-level token only sees that one person's own data.
   scrinApiKey: process.env.SCRIN_IO_API_KEY ?? '',
+  // How often (seconds) to check scrin.io tracking state and react to pauses
+  // (DM the employee + open/close their break). 0 disables the monitor.
+  scrinPollSeconds: Number(process.env.SCRIN_POLL_SECONDS ?? 60),
   anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? '',
   claudeModel: process.env.CLAUDE_MODEL ?? 'claude-sonnet-5',
   corsOrigin: process.env.CORS_ORIGIN ?? 'http://localhost:5173',

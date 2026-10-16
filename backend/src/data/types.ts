@@ -139,3 +139,23 @@ export interface AuditLog {
   ipAddress: string | null;
   createdAt: string;
 }
+
+/**
+ * A break for an employee, opened when their scrin.io activity is paused
+ * (tracking turned off) and closed when it resumes. The paused span counts as
+ * break time. `endTs` null means the break is still open (currently paused).
+ */
+export interface BreakRecord {
+  id: string;
+  companyId: string;
+  employeeId: string;
+  date: string; // local "YYYY-MM-DD" the break started on
+  source: 'scrin_pause'; // how the break was opened
+  startTs: number; // epoch seconds — when paused
+  endTs: number | null; // epoch seconds — when resumed (null = ongoing)
+  startLocal: string; // "HH:MM"
+  endLocal: string | null; // "HH:MM"
+  notified: boolean; // whether the Slack DM to the employee was delivered
+  createdAt: string;
+  updatedAt: string;
+}

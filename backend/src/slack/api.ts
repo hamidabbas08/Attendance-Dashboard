@@ -128,3 +128,37 @@ export async function fetchChannelHistory(
     return [];
   }
 }
+
+/**
+ * Send a direct message (DM) to a single Slack user via the bot token.
+ * Opens (or reuses) the 1:1 conversation with `conversations.open`, then posts
+ * with `chat.postMessage`. This ONLY ever messages the individual user — never
+ * a channel — and is best-effort (returns false on any failure).
+ * Requires the bot scopes `chat:write` and `im:write`.
+ */
+export async function sendDirectMessage(
+  token: string,
+  slackUserId: string,
+  text: string,
+): Promise<boolean> {
+  try {
+    const openRes = await fetch('https://slack.com/api/conversations.open', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ users: slackUserId }),
+    });
+    const open = (await openRes.json()) as { ok?: boolean; channel?: { id?: string } };
+    const channel = open.ok ? open.channel?.id : undefined;
+    if (!channel) return false;
+
+    const postRes = await fetch('https://slack.com/api/chat.postMessage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ channel, text }),
+    });
+    const post = (await postRes.json()) as { ok?: boolean };
+    return Boolean(post.ok);
+  } catch {
+    return false;
+  }
+}
